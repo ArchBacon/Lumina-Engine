@@ -1,0 +1,87 @@
+
+[*]
+charset = utf-8-bom
+end_of_line = crlf
+trim_trailing_whitespace = false
+insert_final_newline = false
+indent_style = space
+indent_size = 4
+
+# ReSharper properties
+resharper_align_multiline_calls_chain = false
+resharper_align_multiline_expression_braces = true
+resharper_align_ternary = none
+resharper_autodetect_indent_settings = true
+resharper_blank_lines_around_function_definition = 0
+resharper_continuous_line_indent = single
+resharper_cpp_brace_style = next_line
+resharper_cpp_case_block_braces = next_line
+resharper_cpp_empty_block_style = together_same_line
+resharper_cpp_invocable_declaration_braces = next_line
+resharper_cpp_keep_blank_lines_in_code = 1
+resharper_cpp_keep_blank_lines_in_declarations = 1
+resharper_cpp_max_line_length = 2422
+resharper_cpp_outdent_commas = true
+resharper_cpp_wrap_after_invocation_lpar = true
+resharper_cpp_wrap_arguments_style = chop_if_long
+resharper_cpp_wrap_before_invocation_rpar = true
+resharper_disable_space_changes_before_trailing_comment = true
+resharper_formatter_off_tag = @formatter:off
+resharper_formatter_on_tag = @formatter:on
+resharper_formatter_tags_enabled = true
+resharper_function_declaration_return_type_style = on_single_line
+resharper_function_definition_return_type_style = on_single_line
+resharper_indent_aligned_ternary = false
+resharper_indent_member_initializer_list = false
+resharper_indent_switch_labels = true
+resharper_int_align_bitfield_sizes = true
+resharper_int_align_enum_initializers = true
+resharper_line_break_after_colon_in_member_initializer_lists = on_single_line
+resharper_line_break_after_deref_in_trailing_return_types = on_single_line
+resharper_line_break_after_init_statement = on_single_line
+resharper_line_break_before_deref_in_trailing_return_types = on_single_line
+resharper_line_break_before_requires_clause = on_single_line
+resharper_linkage_specification_braces = next_line
+resharper_linkage_specification_indentation = all
+resharper_show_autodetect_configure_formatting_tip = false
+resharper_simple_block_style = do_not_change
+resharper_simple_case_statement_style = on_single_line
+resharper_simple_embedded_statement_style = on_single_line
+resharper_space_after_comma = true
+resharper_space_after_comma_in_initializer_braces = true
+resharper_toplevel_function_declaration_return_type_style = on_single_line
+resharper_toplevel_function_definition_return_type_style = on_single_line
+resharper_use_indent_from_vs = false
+resharper_wrap_before_colon = true
+resharper_wrap_braced_init_list_style = chop_if_long
+resharper_wrap_enumeration_style = chop_always
+
+# ReSharper inspection severities
+resharper_cpp_clang_tidy_bugprone_implicit_widening_of_multiplication_result_highlighting = none
+resharper_cpp_enforce_cv_qualifiers_order_highlighting = error
+resharper_cpp_enforce_cv_qualifiers_placement_highlighting = error
+resharper_cpp_enforce_do_statement_braces_highlighting = error
+resharper_cpp_enforce_for_statement_braces_highlighting = error
+resharper_cpp_enforce_function_declaration_style_highlighting = error
+resharper_cpp_enforce_if_statement_braces_highlighting = error
+resharper_cpp_enforce_nested_namespaces_style_highlighting = error
+resharper_cpp_enforce_overriding_destructor_style_highlighting = error
+resharper_cpp_enforce_overriding_function_style_highlighting = error
+resharper_cpp_enforce_type_alias_code_style_highlighting = error
+resharper_cpp_enforce_while_statement_braces_highlighting = error
+resharper_cpp_member_initializers_order_highlighting = error
+resharper_cpp_remove_redundant_braces_highlighting = error
+resharper_cpp_use_auto_for_numeric_highlighting = error
+resharper_cpp_use_auto_highlighting = error
+resharper_cpp_variable_can_be_made_constexpr_highlighting = none
+resharper_cpp_wrong_includes_order_highlighting = error
+resharper_cpp_wrong_slashes_in_include_directive_highlighting = error
+resharper_identifier_typo_highlighting = hint
+resharper_web_config_module_not_resolved_highlighting = warning
+resharper_web_config_type_not_resolved_highlighting = warning
+resharper_web_config_wrong_module_highlighting = warning
+
+[*.{appxmanifest,asax,ascx,aspx,axaml,build,c,c++,c++m,cc,ccm,cginc,compute,cp,cpp,cppm,cs,cshtml,cu,cuh,cxx,cxxm,dtd,fs,fsi,fsscript,fsx,fx,fxh,h,hh,hlsl,hlsli,hlslinc,hpp,hxx,inc,inl,ino,ipp,ixx,master,ml,mli,mpp,mq4,mq5,mqh,mxx,nuspec,paml,razor,resw,resx,shader,skin,tpp,usf,ush,uxml,vb,xaml,xamlx,xoml,xsd}]
+indent_style = space
+indent_size = 4
+tab_width = 4

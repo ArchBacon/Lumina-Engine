@@ -1,0 +1,15 @@
+# Visual Studio user specific files
+.vs/
+**.sln
+**.vcxproj
+**.vcxproj.filters
+**.vcxproj.user
+
+# IntelliJ user specific files
+.idea/
+
+# Binary files
+**/binaries/
+
+# Compiled Source files
+**/intermediate/
