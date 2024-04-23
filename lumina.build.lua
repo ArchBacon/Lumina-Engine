@@ -17,12 +17,15 @@ project "Engine"
     objdir ("intermediate/" .. outputdir .. "/%{prj.name}")
 
     files {
-        "%{prj.name}/source/**.hpp",
-        "%{prj.name}/source/**.cpp",
+        --"%{prj.name}/source/**.hpp",
+        --"%{prj.name}/source/**.cpp",
+        "%{prj.name}/source/public/**.hpp",
+        "%{prj.name}/source/private/**.hpp",
+        "%{prj.name}/source/private/**.cpp",
     }
 
     includedirs {
-        "%{prj.name}/source/",
+        "%{prj.name}/source/public/",
         "$(VULKAN_SDK)/include/",
     }
 
