@@ -1,0 +1,18 @@
+name: codestyle checker
+
+on: [push]
+
+jobs: 
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: clang-format lint
+        uses: DoozyX/clang-format-lint-action@v0.9
+        with:
+          source: '.'
+          exclude: './thirdparty'
+          extensions: 'h,c,hpp,cpp'
+          clangFormatVersion: 17
