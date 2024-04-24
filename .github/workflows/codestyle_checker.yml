@@ -4,12 +4,11 @@ on: [push]
 jobs:
   build:
     runs-on: ubuntu-latest
-    
-    continue-on-error: true
-    
+      
     steps:
     - uses: actions/checkout@v2
     - uses: DoozyX/clang-format-lint-action@v0.17
+      continue-on-error: true
       with:
         source: '.'
         exclude: './thirdparty'
