@@ -107,7 +107,6 @@ RequiresClausePosition: OwnLine
 RequiresExpressionIndentation: OuterScope
 SeparateDefinitionBlocks: Always
 ShortNamespaceLines: 0
-SkipMacroDefinitionBody: false
 SortIncludes: CaseInsensitive
 SpaceAfterCStyleCast: true
 SortUsingDeclarations: Lexicographic
