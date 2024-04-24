@@ -1,19 +1,17 @@
-name: codestyle checker
+name: test-clang-format
 
 on: [push]
 
-jobs: 
+jobs:
   build:
     runs-on: ubuntu-latest
-    
-    steps:
-      - uses: actions/checkout@v3
 
-      - name: clang-format lint
-        uses: DoozyX/clang-format-lint-action@v0.9
-        with:
-          source: '.'
-          exclude: './thirdparty'
-          extensions: 'h,c,hpp,cpp'
-          clangFormatVersion: 17
-          style: 'clang-format'
+    steps:
+    - uses: actions/checkout@v2
+    - uses: DoozyX/clang-format-lint-action@v0.17
+      with:
+        source: '.'
+        exclude: './third_party ./external'
+        extensions: 'h,cpp'
+        clangFormatVersion: 17
+        style: chromium
