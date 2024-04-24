@@ -16,3 +16,4 @@ jobs:
           exclude: './thirdparty'
           extensions: 'h,c,hpp,cpp'
           clangFormatVersion: 17
+          style: 'clang-format'
