@@ -63,7 +63,7 @@ BraceWrapping:
   IndentBraces: false
 BracedInitializerIndentWidth: 4
 BreakAfterAttributes: Never
-BreakBeforeBinaryOperators: All
+BreakBeforeBinaryOperators: NonAssignment
 BreakBeforeConceptDeclarations: Always
 BreakBeforeTernaryOperators: true
 BreakConstructorInitializers: BeforeColon
