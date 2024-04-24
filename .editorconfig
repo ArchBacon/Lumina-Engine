@@ -44,6 +44,7 @@ resharper_blank_lines_around_function_definition = 0
 resharper_cpp_align_multiple_declaration = false
 resharper_cpp_brace_style = next_line
 resharper_cpp_empty_block_style = together_same_line
+resharper_cpp_insert_final_newline = true
 resharper_cpp_keep_blank_lines_in_code = 1
 resharper_cpp_keep_blank_lines_in_declarations = 1
 resharper_cpp_max_line_length = 2422
