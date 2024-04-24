@@ -40,7 +40,6 @@ AlignConsecutiveShortCaseStatements:
   AcrossEmptyLines: false
   AcrossComments: false
   AlignCaseColons: false
-AllowShortCompoundRequirementOnASingleLine: true
 AllowShortEnumsOnASingleLine: true
 BitFieldColonSpacing: Both
 BraceWrapping:
