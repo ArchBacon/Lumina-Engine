@@ -16,9 +16,9 @@ jobs:
     - uses: actions/checkout@v3
 
     - name: Setup Premake
-      uses: premake/setup-premake@v1
+      uses: eariassoto/setup-premake@v1
       with:
-        version: 5.0.0-alpha16
+        version: 5.0.0-beta1
 
     - name: Setup MSBuild
       uses: microsoft/setup-msbuild@v2
