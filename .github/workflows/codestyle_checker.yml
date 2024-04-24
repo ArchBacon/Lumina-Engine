@@ -12,5 +12,5 @@ jobs:
         source: '.'
         exclude: './thirdparty'
         extensions: 'hpp,cpp'
-        clangFormatVersion: 19
+        clangFormatVersion: 18
         style: 'file'
