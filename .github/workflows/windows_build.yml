@@ -18,15 +18,14 @@ jobs:
     - name: Setup Premake
       uses: eariassoto/setup-premake@v1
       with:
-        version: 5.0.0-beta1
+        version: '5.0.0-beta1'
+        action: 'vs2022'
+        options: '--file=lumina.build.lua'
 
     - name: Setup MSBuild
       uses: microsoft/setup-msbuild@v2
       with:
         msbuild-architecture: x64
-
-    - name: Generate project with tests
-      run: premake5 --file=lumina.build.lua vs2022
 
     - name: Build
       working-directory: ${{env.GITHUB_WORKSPACE}}
