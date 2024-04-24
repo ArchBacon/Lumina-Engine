@@ -63,7 +63,6 @@ BraceWrapping:
   SplitEmptyNamespace: true
   IndentBraces: false
 BracedInitializerIndentWidth: 4
-BreakAdjacentStringLiterals: true
 BreakAfterAttributes: Never
 BreakBeforeBinaryOperators: NonAssignment
 BreakBeforeConceptDeclarations: Always
