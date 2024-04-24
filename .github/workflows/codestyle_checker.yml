@@ -1,5 +1,4 @@
-name: test-clang-format
-
+name: Codestyle checker
 on: [push]
 
 jobs:
@@ -11,7 +10,7 @@ jobs:
     - uses: DoozyX/clang-format-lint-action@v0.17
       with:
         source: '.'
-        exclude: './third_party ./external'
-        extensions: 'h,cpp'
-        clangFormatVersion: 17
+        exclude: './thirdparty'
+        extensions: 'hpp,cpp'
+        clangFormatVersion: 19
         style: 'file'
