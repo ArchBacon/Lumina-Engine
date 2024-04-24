@@ -11,7 +11,6 @@ AlignConsecutiveAssignments:
   Enabled: true
   AcrossEmptyLines: false
   AcrossComments: false
-  AlignFunctionPointers: false
 AlignConsecutiveDeclarations:
   Enabled: false
 AlignEscapedNewlines: Left
