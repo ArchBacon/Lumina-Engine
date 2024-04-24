@@ -140,3 +140,5 @@ SpacesInParens: Never
 SpacesInSquareBrackets: false
 TabWidth: 4
 UseTab: Never
+PointerAlignment: Left
+QualifierAlignment: Left
