@@ -5,6 +5,7 @@ permissions:
   
 env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  BRANCH_NAME: ${{ github.head_ref || github.ref_name }} 
   
 jobs:
   style-checker:
@@ -30,4 +31,4 @@ jobs:
           git config --global user.email 'actions@users.noreply.github.com'
           git remote set-url origin https://x-access-token:${{ secrets.PAT }}@github.com/${{ github.repository }}
           git commit -am "🤖 Committing clang-format changes"
-          git push origin HEAD:${GITHUB_REF##*/}
+          git push origin HEAD:${{ BRANCH_NAME }}
