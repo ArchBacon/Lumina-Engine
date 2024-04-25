@@ -1,0 +1,39 @@
+name: Windows Build
+on: [pull_request]
+env:
+  SOLUTION: Lumina.sln
+
+jobs:
+  build:
+    runs-on: windows-latest
+    
+    strategy:
+      fail-fast: false
+      matrix:
+        build-configuration: [Debug, Release]
+        
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Setup Premake
+      uses: eariassoto/setup-premake@v1
+      with:
+        version: '5.0.0-beta1'
+        action: 'vs2022'
+        options: '--file=lumina.build.lua'
+
+    - name: Setup MSBuild
+      uses: microsoft/setup-msbuild@v2
+      with:
+        msbuild-architecture: x64
+
+    - name: Prepare Vulkan SDK
+      uses: humbletim/setup-vulkan-sdk@v1.2.0
+      with:
+        vulkan-query-version: latest
+        vulkan-components: Vulkan-Headers, Vulkan-Loader
+        vulkan-use-cache: true
+
+    - name: Build
+      working-directory: ${{env.GITHUB_WORKSPACE}}
+      run: msbuild /m /p:Configuration=${{matrix.build-configuration}} /p:Platform=x64 ${{env.SOLUTION}}
