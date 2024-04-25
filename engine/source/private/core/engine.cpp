@@ -4,10 +4,10 @@
 #include <iostream>
 #include <SDL2/SDL.h>
 
+lumina::Engine gEngine;
+
 namespace lumina
 {
-    Engine gEngine;
-
     void Engine::Initialize()
     {
         // Initialize SDL and create a window
