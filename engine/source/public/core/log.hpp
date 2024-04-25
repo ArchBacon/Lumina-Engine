@@ -2,24 +2,32 @@
 
 #include <memory>
 #include <spdlog/spdlog.h>
+#include <spdlog/sinks/stdout_color_sinks.h>
 
 namespace lumina
 {
     class Log
     {
+        inline static std::shared_ptr<spdlog::logger> logger;
+        
     public:
-        static void Init();
+        static void Init()
+        {
+            spdlog::set_pattern("%^[%T] %n: %v%$");
+            logger = spdlog::stdout_color_mt("LUMINA");
+            logger->set_level(spdlog::level::trace);
+        }
 
-        inline static std::shared_ptr<spdlog::logger>& GetLogger() { return sLogger; }
+        template <typename ...Args>
+        static void Trace(Args... args) { logger->trace(std::forward<Args>(args)...); }
 
-    private:
-        static std::shared_ptr<spdlog::logger> sLogger;
+        template <typename ...Args>
+        static void Info(Args... args) { logger->info(std::forward<Args>(args)...); }
+
+        template <typename ...Args>
+        static void Warn(Args... args) { logger->warn(std::forward<Args>(args)...); }
+
+        template <typename ...Args>
+        static void Error(Args... args) { logger->error(std::forward<Args>(args)...); }
     };
 }
-
-// Logging macros
-#define LE_TRACE(...) ::lumina::Log::GetLogger()->trace(__VA_ARGS__)
-#define LE_INFO(...)  ::lumina::Log::GetLogger()->info(__VA_ARGS__)
-#define LE_WARN(...)  ::lumina::Log::GetLogger()->warn(__VA_ARGS__)
-#define LE_ERROR(...) ::lumina::Log::GetLogger()->error(__VA_ARGS__)
-#define LE_FATAL(...) ::lumina::Log::GetLogger()->fatal(__VA_ARGS__)
