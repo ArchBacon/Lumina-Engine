@@ -17,6 +17,9 @@ jobs:
           wget https://apt.llvm.org/llvm.sh
           chmod +x llvm.sh
           sudo ./llvm.sh 18
+
+      - name: Print clang-format version
+        run: clang-format --version
         
       - name: check-diff
         run : |
