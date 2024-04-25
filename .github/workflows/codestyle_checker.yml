@@ -11,21 +11,11 @@ jobs:
         with:
           fetch-depth: 0
 
-      # - name: install clang-format
-      #   run : |
-      #     wget https://apt.llvm.org/llvm.sh
-      #     chmod +x llvm.sh
-      #     sudo ./llvm.sh 18
-
-      - name: Install Homebrew
-        run: |
-          test -d ~/.linuxbrew && eval "$(~/.linuxbrew/bin/brew shellenv)"
-          test -d /home/linuxbrew/.linuxbrew && eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
-          echo "eval \"\$($(brew --prefix)/bin/brew shellenv)\"" >> ~/.bashrc
-        
-      - name: Install clang-format
-        run: |
-          brew install clang-format@18
+      - name: install clang-format
+        run : |
+          wget https://apt.llvm.org/llvm.sh
+          chmod +x llvm.sh
+          sudo ./llvm.sh 18
   
       - name: Print clang-format version
         run: |
