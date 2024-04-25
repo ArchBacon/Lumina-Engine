@@ -2,7 +2,7 @@ name: Clang-format check
 on: [pull_request]
 
 jobs:
-  build:
+  formatting-check:
     runs-on: ubuntu-latest
 
     steps:
@@ -12,14 +12,10 @@ jobs:
           fetch-depth: 0
 
       - name: install clang-format
-        run : |
-          wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key|sudo apt-key add -
-          deb http://apt.llvm.org/buster/ llvm-toolchain-buster main
-          deb-src http://apt.llvm.org/buster/ llvm-toolchain-buster main
-          sudo apt update
-          apt search clang-format
-          sudo apt install -y clang-format-18
-          clang-format-18 --version
+        uses: jidicula/clang-format-action@v4.11.0
+        with:
+          clang-format-version: '18'
+          check-path: 'engine'
   
       - name: Print clang-format version
         run: |
