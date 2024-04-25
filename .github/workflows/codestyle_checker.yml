@@ -11,21 +11,34 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: install clang-format
-        run : |
-          wget https://apt.llvm.org/llvm.sh
-          chmod +x llvm.sh
-          sudo ./llvm.sh 18
+      # - name: install clang-format
+      #   run : |
+      #     wget https://apt.llvm.org/llvm.sh
+      #     chmod +x llvm.sh
+      #     sudo ./llvm.sh 18
 
-      - name: Print clang-format version
-        run: clang-format --version
+      - name: Install Homebrew
+        run: |
+          /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+          echo "PATH=/home/linuxbrew/.linuxbrew/bin:$PATH" >> $GITHUB_PATH
         
-      - name: check-diff
-        run : |
-          diff=$(git-clang-format --diff HEAD^)
-          if ! [[ "$diff" = "no modified files to format" || "$diff" = "clang-format did not modify any files" ]]; then
-              echo "The diff you sent is not formatted correctly."
-              echo "The suggested format is"
-              echo "$diff"
-              exit 1
-          fi
+      - name: Install clang-format
+        run: |
+          brew install clang-format@18
+  
+      - name: Print clang-format version
+        run: |
+          clang-format --version
+  
+        - name: Print clang-format version
+          run: clang-format --version
+          
+        - name: check-diff
+          run : |
+            diff=$(git-clang-format --diff HEAD^)
+            if ! [[ "$diff" = "no modified files to format" || "$diff" = "clang-format did not modify any files" ]]; then
+                echo "The diff you sent is not formatted correctly."
+                echo "The suggested format is"
+                echo "$diff"
+                exit 1
+            fi
