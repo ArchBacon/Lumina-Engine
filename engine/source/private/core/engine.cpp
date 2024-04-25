@@ -29,7 +29,7 @@ void Engine::Run()
     auto previousTime = std::chrono::high_resolution_clock::now();
     SDL_Event e;
     
-    while (mRunning) // Exit engine after 2 seconds
+    while (mRunning)
     {
         const auto currentTime = std::chrono::high_resolution_clock::now();
         const float deltaTime = static_cast<float>(std::chrono::duration_cast<std::chrono::microseconds>(currentTime - previousTime).count()) / 1000000.0f;
