@@ -1,11 +1,14 @@
 ﻿#pragma once
 
-class Engine
+namespace lumina
 {
-public:
-    void Initialize();
-    void Run();
-    void Shutdown();
-};
+    class Engine
+    {
+    public:
+        void Initialize();
+        void Run();
+        void Shutdown();
+    };
+} // namespace lumina
 
-extern Engine gEngine;
+extern lumina::Engine gEngine;
