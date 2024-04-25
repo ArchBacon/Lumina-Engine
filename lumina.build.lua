@@ -27,12 +27,12 @@ project "Engine"
     includedirs {
         "%{prj.name}/source/public/",
         "$(VULKAN_SDK)/include/",
-        "%{prj.name}/ThirdParty/*/include",
+        "%{prj.name}/thirdparty/*/include",
     }
 
     libdirs {
         "$(VULKAN_SDK)/Lib/",
-        "%{prj.name}/ThirdParty/SDL/lib",
+        "%{prj.name}/thirdparty/SDL/lib",
     }
 
     links {
