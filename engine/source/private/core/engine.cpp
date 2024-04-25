@@ -4,12 +4,16 @@
 #include <iostream>
 #include <SDL/SDL.h>
 
+#include "core/log.hpp"
+
 lumina::Engine gEngine;
 
 namespace lumina
 {
     void Engine::Initialize()
     {
+        Log::Init();
+        
         // Initialize SDL and create a window
         SDL_Init(SDL_INIT_VIDEO);
 
