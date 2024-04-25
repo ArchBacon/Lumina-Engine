@@ -93,7 +93,7 @@ InsertTrailingCommas: Wrapped
 KeepEmptyLinesAtEOF: true
 KeepEmptyLinesAtTheStartOfBlocks: false
 LambdaBodyIndentation: Signature
-LineEnding: CRLF
+LineEnding: DeriveCRLF
 MaxEmptyLinesToKeep: 1
 NamespaceIndentation: All
 PackConstructorInitializers: CurrentLine
