@@ -1,20 +1,27 @@
 name: Clang-format check
-on: [push, pull_request]
+on: [push]
 
 jobs:
   formatting-check:
     runs-on: ubuntu-latest
-
-    strategy:
-      matrix:
-        path:
-          - check: 'engine'
-            exclude: '(thirdparty)'
     
     steps:
     - uses: actions/checkout@v3
-    - uses: jidicula/clang-format-action@v4.11.0
       with:
-        check-path: ${{ matrix.path['check'] }}
-        exclude-regex: ${{ matrix.path['exclude'] }}
-        clangFormatVersion: 18
+        # check out HEAD on the branch
+        ref: ${{ github.head_ref }}
+        # make sure the parent commit is grabbed as well, because
+        # that's what will get formatted (i.e. the most recent commit)
+        fetch-depth: 2
+
+    # format the latest commit
+    - uses: purduesigbots/clang-format-action@1.0.2
+      with:
+        style: file
+
+    # commit the changes (if there are any)
+    # - name: Commit changes
+    #   uses: stefanzweifel/git-auto-commit-action@v4.1.2
+    #   with:
+    #     commit_message: 🎨 apply clang-format changes
+    #     branch: ${{ github.head_ref }}
