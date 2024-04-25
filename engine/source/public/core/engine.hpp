@@ -12,7 +12,7 @@ namespace lumina
         int2 windowExtent {1024, 576};
         SDL_Window* window {nullptr};
         bool running {true};
-        
+
         void Initialize();
         void Run();
         void Shutdown();
