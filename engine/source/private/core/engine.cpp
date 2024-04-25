@@ -38,7 +38,7 @@ void Engine::Run()
         std::cout << "Engine::Run DeltaTime: " << deltaTime << "s" << "\n";
         while (SDL_PollEvent(&e) != 0)
         {
-            // close the window when user alt-f4s or clicks the X button
+            // Close the window when user alt-f4s or clicks the X button
             if (e.type == SDL_QUIT) mRunning = false;
         }
     }
