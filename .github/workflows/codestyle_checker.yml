@@ -13,13 +13,17 @@ jobs:
 
       - name: install clang-format
         run : |
-          wget https://apt.llvm.org/llvm.sh
-          chmod +x llvm.sh
-          sudo ./llvm.sh 18
+          wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key|sudo apt-key add -
+          deb http://apt.llvm.org/buster/ llvm-toolchain-buster main
+          deb-src http://apt.llvm.org/buster/ llvm-toolchain-buster main
+          sudo apt update
+          apt search clang-format
+          sudo apt install -y clang-format-18
+          clang-format-18 --version
   
       - name: Print clang-format version
         run: |
-          clang-format --version
+          clang-format-18 --version
         
       - name: check-diff
         run : |
