@@ -2,31 +2,22 @@ name: Clang-format check
 on: [pull_request]
 
 jobs:
-  formatting-check:
+  build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-
-      - name: install clang-format
-        uses: jidicula/clang-format-action@v4.11.0
-        with:
-          clang-format-version: '18'
-          check-path: 'engine'
-  
-      - name: Print clang-format version
-        run: |
-          clang-format-18 --version
-        
-      - name: check-diff
-        run : |
-          diff=$(git-clang-format --diff HEAD^)
-          if ! [[ "$diff" = "no modified files to format" || "$diff" = "clang-format did not modify any files" ]]; then
-              echo "The diff you sent is not formatted correctly."
-              echo "The suggested format is"
-              echo "$diff"
-              exit 1
-          fi
+    - uses: actions/checkout@v3
+    - uses: DoozyX/clang-format-lint-action@v0.9
+      with:
+        source: './engine'
+        exclude: './thirdparty'
+        extensions: 'hpp,h,cpp,c'
+        clangFormatVersion: 17
+        inplace: True
+    - uses: EndBug/add-and-commit@v9
+      with:
+        author_name: Clang Robot
+        author_email: robot@example.com
+        message: 'Committing clang-format changes'
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
