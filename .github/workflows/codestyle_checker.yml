@@ -1,16 +1,20 @@
-name: Codestyle checker
-on: [push]
+name: Clang-format check
+on: [push, pull_request]
 
 jobs:
-  build:
+  formatting-check:
     runs-on: ubuntu-latest
-      
+
+    strategy:
+      matrix:
+        path:
+          - check: 'engine'
+            exclude: '(thirdparty)'
+    
     steps:
-    - uses: actions/checkout@v2
-    - uses: DoozyX/clang-format-lint-action@v0.17
+    - uses: actions/checkout@v3
+    - uses: jidicula/clang-format-action@v4.11.0
       with:
-        source: '.'
-        exclude: './thirdparty'
-        extensions: 'hpp,cpp'
-        clangFormatVersion: 17
-        style: 'file'
+        check-path: ${{ matrix.path['check'] }}
+        exclude-regex: ${{ matrix.path['exclude'] }}
+        clangFormatVersion: 18
