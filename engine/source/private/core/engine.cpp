@@ -2,7 +2,7 @@
 #include <chrono>
 #include <iostream>
 
-Engine gEngine;
+Engine gEngine; 
 
 void Engine::Initialize()
 {
