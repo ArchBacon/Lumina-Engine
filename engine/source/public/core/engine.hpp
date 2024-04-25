@@ -1,6 +1,6 @@
 ﻿#pragma once
 
-class Engine 
+class Engine
 {
 public:
     void Initialize();

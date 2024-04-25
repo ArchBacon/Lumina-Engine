@@ -1,8 +1,9 @@
 ﻿#include "core/engine.hpp"
+
 #include <chrono>
 #include <iostream>
 
-Engine gEngine; 
+Engine gEngine;
 
 void Engine::Initialize()
 {
@@ -17,10 +18,11 @@ void Engine::Run()
     while (sPassedTime <= 2.0f) // Exit engine after 2 seconds
     {
         const auto currentTime = std::chrono::high_resolution_clock::now();
-        const float deltaTime = static_cast<float>(std::chrono::duration_cast<std::chrono::microseconds>(currentTime - previousTime).count()) / 1000000.0f;
-        previousTime = currentTime;
+        const float deltaTime  = static_cast<float>(std::chrono::duration_cast<std::chrono::microseconds>(currentTime - previousTime).count()) / 1000000.0f;
+        previousTime           = currentTime;
 
-        std::cout << "Engine::Run " << sPassedTime << "s - (" << deltaTime << ")" << "\n";
+        std::cout << "Engine::Run " << sPassedTime << "s - (" << deltaTime << ")"
+                  << "\n";
         sPassedTime += deltaTime;
     }
 }
