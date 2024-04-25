@@ -9,6 +9,6 @@ namespace lumina
         void Run();
         void Shutdown();
     };
-}
-    
+} // namespace lumina
+
 extern lumina::Engine gEngine;
