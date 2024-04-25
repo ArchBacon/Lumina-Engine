@@ -6,19 +6,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v3
-    
+    - uses: actions/checkout@v2
     - uses: DoozyX/clang-format-lint-action@v0.9
       with:
         source: '.'
-        exclude: './thirdparty'
-        extensions: 'hpp,h,cpp,c'
+        exclude: './third_party'
+        extensions: 'h,cpp'
         clangFormatVersion: 17
-        
-    - uses: EndBug/add-and-commit@v9
-      with:
-        author_name: Clang Robot
-        author_email: robot@example.com
-        message: 'Committing clang-format changes'
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        style: file
