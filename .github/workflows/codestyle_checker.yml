@@ -16,7 +16,7 @@ jobs:
         fetch-depth: 2
 
     - name: Format all files
-    - uses: DoozyX/clang-format-lint-action@v0.17
+      uses: DoozyX/clang-format-lint-action@v0.17
       with:
         source: '.'
         exclude: './third_party ./*/thirdparty'
