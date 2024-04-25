@@ -11,6 +11,6 @@ jobs:
       with:
         source: '.'
         exclude: './third_party'
-        extensions: 'h,cpp'
-        clangFormatVersion: 17
+        extensions: 'hpp,h,cpp,c'
+        clangFormatVersion: 17.0.4
         style: file
