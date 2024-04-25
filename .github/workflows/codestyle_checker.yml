@@ -19,8 +19,9 @@ jobs:
 
       - name: Install Homebrew
         run: |
-          /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-          echo "PATH=/home/linuxbrew/.linuxbrew/bin:$PATH" >> $GITHUB_PATH
+          test -d ~/.linuxbrew && eval "$(~/.linuxbrew/bin/brew shellenv)"
+          test -d /home/linuxbrew/.linuxbrew && eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+          echo "eval \"\$($(brew --prefix)/bin/brew shellenv)\"" >> ~/.bashrc
         
       - name: Install clang-format
         run: |
@@ -29,9 +30,6 @@ jobs:
       - name: Print clang-format version
         run: |
           clang-format --version
-  
-      - name: Print clang-format version
-        run: clang-format --version
         
       - name: check-diff
         run : |
