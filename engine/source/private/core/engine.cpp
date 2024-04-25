@@ -2,35 +2,49 @@
 
 #include <chrono>
 #include <iostream>
+#include <SDL2/SDL.h>
 
 namespace lumina
 {
     Engine gEngine;
 
-    void Engine::Initialize()
-    {
-        std::cout << "Engine::Initialize\n";
-    }
+void Engine::Initialize()
+{
+    // Initialize SDL and create a window
+    SDL_Init(SDL_INIT_VIDEO);
 
-    void Engine::Run()
-    {
-        static float sPassedTime = 0.0f; // Temporary timer to automatically exit the engine
+    const SDL_WindowFlags windowFlags = SDL_WINDOW_VULKAN;
+    mWindow = SDL_CreateWindow(
+        "Lumina Engine",
+        SDL_WINDOWPOS_UNDEFINED,
+        SDL_WINDOWPOS_UNDEFINED,
+        mWindowExtent.x,
+        mWindowExtent.y,
+        windowFlags
+    );
+}
 
-        auto previousTime = std::chrono::high_resolution_clock::now();
-        while (sPassedTime <= 2.0f) // Exit engine after 2 seconds
+void Engine::Run()
+{
+    auto previousTime = std::chrono::high_resolution_clock::now();
+    SDL_Event e;
+    
+    while (mRunning) // Exit engine after 2 seconds
+    {
+        const auto currentTime = std::chrono::high_resolution_clock::now();
+        const float deltaTime = static_cast<float>(std::chrono::duration_cast<std::chrono::microseconds>(currentTime - previousTime).count()) / 1000000.0f;
+        previousTime = currentTime;
+
+        std::cout << "Engine::Run DeltaTime: " << deltaTime << "s" << "\n";
+        while (SDL_PollEvent(&e) != 0)
         {
-            const auto currentTime = std::chrono::high_resolution_clock::now();
-            const float deltaTime  = static_cast<float>(std::chrono::duration_cast<std::chrono::microseconds>(currentTime - previousTime).count()) / 1000000.0f;
-            previousTime           = currentTime;
-
-            std::cout << "Engine::Run " << sPassedTime << "s - (" << deltaTime << ")"
-                      << "\n";
-            sPassedTime += deltaTime;
+            // close the window when user alt-f4s or clicks the X button
+            if (e.type == SDL_QUIT) mRunning = false;
         }
     }
+}
 
-    void Engine::Shutdown()
-    {
-        std::cout << "Engine::Shutdown\n";
-    }
-} // namespace lumina
+void Engine::Shutdown()
+{
+    SDL_DestroyWindow(mWindow);
+}
