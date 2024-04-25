@@ -2,7 +2,7 @@ name: Clang-format check
 on: [pull_request]
 
 jobs:
-  build:
+  style-checker:
     runs-on: ubuntu-latest
 
     steps:
