@@ -14,7 +14,7 @@ namespace lumina
         static void Init()
         {
             spdlog::set_pattern("%^[%T] %n: %v%$");
-            logger = spdlog::stdout_color_mt("LUMINA");
+            logger = spdlog::stdout_color_mt("ENGINE");
             logger->set_level(spdlog::level::trace);
         }
 
