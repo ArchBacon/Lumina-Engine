@@ -1,7 +1,6 @@
 ﻿#include "core/engine.hpp"
-
 #include "core/log.hpp"
-
+#include "core/fileio.hpp"
 #include <chrono>
 #include <SDL/SDL.h>
 
@@ -12,6 +11,11 @@ namespace lumina
     void Engine::Initialize()
     {
         Log::Init();
+
+        fileIO = std::make_unique<lumina::FileIO>();
+        if (!fileIO)
+            throw std::runtime_error("FileIO is not initialized, this should never happen!");
+        std::cout << "Engine::Initialize\n";
 
         // Initialize SDL and create a window
         SDL_Init(SDL_INIT_VIDEO);
