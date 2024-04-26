@@ -1,19 +1,19 @@
 ﻿#pragma once
-#include <memory>
-
 #include "types.hpp"
+
+#include <memory>
 
 struct SDL_Window;
 
 namespace lumina
 {
     class FileIO;
-    
+
     class Engine
     {
     private:
         std::unique_ptr<FileIO> fileIO = nullptr;
-        
+
     public:
         int2 windowExtent {1024, 576};
         SDL_Window* window {nullptr};
@@ -24,7 +24,9 @@ namespace lumina
         void Shutdown();
 
         FileIO& FileIO() const
-        { return *fileIO; }
+        {
+            return *fileIO;
+        }
     };
 } // namespace lumina
 

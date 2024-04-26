@@ -1,7 +1,8 @@
-﻿#include <fstream>
-#include <sstream>
+﻿#include "core/fileio.hpp"
+
 #include <filesystem>
-#include "core/fileio.hpp"
+#include <fstream>
+#include <sstream>
 
 namespace lumina
 {
@@ -9,9 +10,9 @@ namespace lumina
     {
         directories[Directory::Assets] = "engine/assets/";
         directories[Directory::Config] = "engine/config/";
-        directories[Directory::Log] = "log/";
+        directories[Directory::Log]    = "log/";
     }
-    
+
     std::string FileIO::ReadTextFile(Directory directory, const std::string& filePath)
     {
         const auto fullPath = GetFilePath(directory, filePath);
@@ -52,7 +53,9 @@ namespace lumina
         file.seekg(0, std::ios::beg);
         std::vector<char> fileContent(fileSize);
         if (file.read(fileContent.data(), fileSize))
+        {
             return fileContent;
+        }
 
         return {};
     }
@@ -86,4 +89,4 @@ namespace lumina
         const auto fullPath = GetFilePath(directory, filePath);
         return std::filesystem::last_write_time(fullPath).time_since_epoch().count();
     }
-}
+} // namespace lumina
