@@ -20,18 +20,12 @@ cd hooks
 
 REM Create post-checkout file and write command into it.
 REM `post-checkout` runs after the `git checkout` or `git clone` commands
-echo call ../../generate_project_files.bat > post-checkout
-chmod +x .git/hooks/post-checkout
+echo call generate_project_files.bat > post-checkout
 
 REM `post-merge` runs after the `git pull` command  
-echo call ../../generate_project_files.bat > post-merge
-chmod +x .git/hooks/post-merge
+echo call generate_project_files.bat > post-merge
 
 REM `post-rewrite` runs after the `--amend` or `rebase` commands
-echo call ../../generate_project_files.bat > post-rewrite
-chmod +x .git/hooks/post-rewrite
-
-REM Navigate back to original directory
-cd ../..
+echo call generate_project_files.bat > post-rewrite
 
 echo "Script executed successfully"
