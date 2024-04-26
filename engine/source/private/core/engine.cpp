@@ -22,7 +22,10 @@ namespace lumina
         }
 
         assetManager = std::make_unique<lumina::AssetManager>();
-        static_assert(assetManager != nullptr, "AssetManager is not initialized, this should never happen!");
+        if (!assetManager)
+        {
+            throw std::runtime_error("AssetManager is not initialized, this should never happen!");
+        }
         
         // Initialize SDL and create a window
         SDL_Init(SDL_INIT_VIDEO);
