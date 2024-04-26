@@ -2,7 +2,7 @@
 
 #include "types.hpp"
 
-#include <SDL2/SDL_video.h>
+struct SDL_Window;
 
 namespace lumina
 {
