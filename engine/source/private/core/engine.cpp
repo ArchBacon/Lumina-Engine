@@ -15,6 +15,7 @@ namespace lumina
         fileIO = std::make_unique<lumina::FileIO>();
         if (!fileIO)
             throw std::runtime_error("FileIO is not initialized, this should never happen!");
+        
         std::cout << "Engine::Initialize\n";
 
         // Initialize SDL and create a window

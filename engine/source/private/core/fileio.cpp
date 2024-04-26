@@ -7,10 +7,10 @@ namespace lumina
 {
     FileIO::FileIO()
     {
-        directories[Directory::Assets] = "/assets/";
-        directories[Directory::Config] = "/config/";
-        directories[Directory::Save] = "/save/";
-        directories[Directory::Log] = "/log/";
+        directories[Directory::Assets] = "assets/";
+        directories[Directory::Config] = "config/";
+        directories[Directory::Save] = "save/";
+        directories[Directory::Log] = "log/";
     }
     
     std::string FileIO::ReadTextFile(Directory directory, const std::string& filePath)
