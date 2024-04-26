@@ -16,8 +16,6 @@ namespace lumina
         if (!fileIO)
             throw std::runtime_error("FileIO is not initialized, this should never happen!");
         
-        std::cout << "Engine::Initialize\n";
-
         // Initialize SDL and create a window
         SDL_Init(SDL_INIT_VIDEO);
 
