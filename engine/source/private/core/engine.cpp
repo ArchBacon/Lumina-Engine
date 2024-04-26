@@ -28,8 +28,7 @@ namespace lumina
             const float deltaTime  = static_cast<float>(std::chrono::duration_cast<std::chrono::microseconds>(currentTime - previousTime).count()) / 1000000.0f;
             previousTime           = currentTime;
 
-            std::cout << "Engine::Run DeltaTime: " << deltaTime << "s"
-                      << "\n";
+            std::cout << "Engine::Run DeltaTime: " << deltaTime << "s" << "\n";
             while (SDL_PollEvent(&e) != 0)
             {
                 // Close the window when user alt-f4s or clicks the X button
