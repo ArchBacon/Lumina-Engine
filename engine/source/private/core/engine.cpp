@@ -3,10 +3,7 @@
 #include "core/log.hpp"
 
 #include <chrono>
-#include <iostream>
 #include <SDL/SDL.h>
-
-#include "core/log.hpp"
 
 lumina::Engine gEngine;
 
