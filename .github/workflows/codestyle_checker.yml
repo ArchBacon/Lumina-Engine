@@ -26,6 +26,7 @@ jobs:
         style: file
 
     - name: Commit changes
+      continue-on-error: true
       run: |
           git config --global user.name 'Github Actions'
           git config --global user.email 'actions@users.noreply.github.com'
