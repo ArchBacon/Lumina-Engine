@@ -7,9 +7,8 @@ namespace lumina
 {
     FileIO::FileIO()
     {
-        directories[Directory::Assets] = "assets/";
-        directories[Directory::Config] = "config/";
-        directories[Directory::Save] = "save/";
+        directories[Directory::Assets] = "engine/assets/";
+        directories[Directory::Config] = "engine/config/";
         directories[Directory::Log] = "log/";
     }
     

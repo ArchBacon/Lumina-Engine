@@ -22,7 +22,6 @@ namespace lumina
         {
             Assets,
             Config,
-            Save,
             Log
         };
 
