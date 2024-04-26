@@ -12,7 +12,7 @@ namespace lumina
     void Engine::Initialize()
     {
         Log::Init();
-        
+
         // Initialize SDL and create a window
         SDL_Init(SDL_INIT_VIDEO);
 
