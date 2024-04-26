@@ -12,8 +12,6 @@ namespace lumina
         directories[Directory::Save] = "/save/";
         directories[Directory::Log] = "/log/";
     }
-
-    FileIO::~FileIO() = default;
     
     std::string FileIO::ReadTextFile(Directory directory, const std::string& filePath)
     {

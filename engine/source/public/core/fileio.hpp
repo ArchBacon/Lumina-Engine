@@ -11,7 +11,12 @@ namespace lumina
     {
     public:
         FileIO();
-        ~FileIO();
+        ~FileIO() = default;
+        
+        FileIO(const FileIO&) = delete;
+        FileIO(FileIO&&) = delete;
+        FileIO& operator=(const FileIO&) = delete;
+        FileIO& operator=(FileIO&&) = delete;
         
         enum class Directory
         {
