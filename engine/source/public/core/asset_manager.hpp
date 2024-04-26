@@ -1,7 +1,8 @@
 ﻿#pragma once
+#include "core/asset.hpp"
+
 #include <memory>
 #include <unordered_map>
-#include "core/asset.hpp"
 
 namespace lumina
 {
@@ -13,8 +14,8 @@ namespace lumina
     private:
         friend class Engine;
         std::unordered_map<uint32_t, std::shared_ptr<Asset>> assets;
-        
-    public:        
+
+    public:
         template <typename T, typename... Args>
         std::shared_ptr<T> CreateAsset(Args&&... args)
         {
@@ -22,8 +23,8 @@ namespace lumina
             static_assert(std::is_base_of_v<Asset, T>, "T must derive from Asset");
 
             //Check if the asset has a valid path
-            auto asset = std::make_shared<T>(std::forward<Args>(args)...);
-            const std::string& path = asset->GetFilePath();            
+            auto asset              = std::make_shared<T>(std::forward<Args>(args)...);
+            const std::string& path = asset->GetFilePath();
             static_assert(!path.empty(), "Asset must have a valid path");
 
             //Check if the asset already exists
@@ -41,13 +42,15 @@ namespace lumina
         {
             static_assert(std::is_base_of_v<Asset, T>, "T must derive from Asset");
             const std::string filePath = T::GetFilePath(args...);
-            const auto id = T::GenerateID(filePath);
+            const auto id              = T::GenerateID(filePath);
 
             if (const auto asset = FindAsset<T>(id))
+            {
                 return asset;
-            
-            assets[id] = std::make_shared<T>(std::forward<Args>(args)...);
-            assets[id]->id = id;
+            }
+
+            assets[id]           = std::make_shared<T>(std::forward<Args>(args)...);
+            assets[id]->id       = id;
             assets[id]->filePath = filePath;
 
             return std::static_pointer_cast<T>(assets[id]);
@@ -69,4 +72,4 @@ namespace lumina
         //NOTE: Might not be performant with large amount of assets.
         void UnloadAssets();
     };
-}
+} // namespace lumina

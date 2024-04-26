@@ -26,7 +26,7 @@ namespace lumina
         {
             throw std::runtime_error("AssetManager is not initialized, this should never happen!");
         }
-        
+
         // Initialize SDL and create a window
         SDL_Init(SDL_INIT_VIDEO);
 
