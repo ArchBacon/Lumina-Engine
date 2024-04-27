@@ -11,7 +11,7 @@ namespace lumina
     class FileIO
     {
         friend class Engine;
-        
+
     public:
         enum class Directory
         {
