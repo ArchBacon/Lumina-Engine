@@ -22,7 +22,7 @@ namespace lumina
             printf("FileIO::ReadTextFile: Failed to open file %s\n", fullPath.c_str());
             return "";
         }
-        
+
         std::stringstream buffer;
         buffer << file.rdbuf();
         return buffer.str();
@@ -37,7 +37,7 @@ namespace lumina
             printf("FileIO::WriteTextFile: Failed to open file %s\n", fullPath.c_str());
             return false;
         }
-        
+
         file << data;
         return file.good();
     }
@@ -51,7 +51,7 @@ namespace lumina
             printf("FileIO::ReadBinaryFile: Failed to open file %s\n", fullPath.c_str());
             return {};
         }
-        
+
         const auto fileSize = file.tellg();
         file.seekg(0, std::ios::beg);
         std::vector<char> fileContent(fileSize);
@@ -72,7 +72,7 @@ namespace lumina
             printf("FileIO::WriteBinaryFile: Failed to open file %s\n", fullPath.c_str());
             return false;
         }
-        
+
         file.write(data.data(), static_cast<std::streamsize>(data.size()));
         return file.good();
     }

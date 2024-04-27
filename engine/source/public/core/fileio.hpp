@@ -17,7 +17,7 @@ namespace lumina
             Config,
             Log
         };
-        
+
         FileIO();
         ~FileIO() = default;
 
