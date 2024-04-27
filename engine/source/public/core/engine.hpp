@@ -1,4 +1,5 @@
 ﻿#pragma once
+
 #include "types.hpp"
 
 #include <memory>
@@ -11,8 +12,7 @@ namespace lumina
 
     class Engine
     {
-    private:
-        std::unique_ptr<FileIO> fileIO = nullptr;
+        std::unique_ptr<FileIO> fileIO {nullptr};
 
     public:
         int2 windowExtent {1024, 576};
@@ -23,7 +23,7 @@ namespace lumina
         void Run();
         void Shutdown();
 
-        FileIO& FileIO() const
+        [[nodiscard]] FileIO& FileIO() const
         {
             return *fileIO;
         }
