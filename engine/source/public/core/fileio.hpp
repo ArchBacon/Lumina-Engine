@@ -1,4 +1,5 @@
 ﻿#pragma once
+
 #include <map>
 #include <string_view>
 #include <vector>
@@ -10,6 +11,13 @@ namespace lumina
     class FileIO
     {
     public:
+        enum class Directory
+        {
+            Assets,
+            Config,
+            Log
+        };
+        
         FileIO();
         ~FileIO() = default;
 
@@ -17,13 +25,6 @@ namespace lumina
         FileIO(FileIO&&)                 = delete;
         FileIO& operator=(const FileIO&) = delete;
         FileIO& operator=(FileIO&&)      = delete;
-
-        enum class Directory
-        {
-            Assets,
-            Config,
-            Log
-        };
 
         //Text file read/write
         std::string ReadTextFile(Directory directory, const std::string& filePath);
