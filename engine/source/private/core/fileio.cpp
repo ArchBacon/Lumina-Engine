@@ -1,5 +1,7 @@
 ﻿#include "core/fileio.hpp"
 
+#include "core/log.hpp"
+
 #include <filesystem>
 #include <fstream>
 #include <sstream>
@@ -19,7 +21,7 @@ namespace lumina
         const std::ifstream file(fullPath);
         if (!file.is_open())
         {
-            printf("FileIO::ReadTextFile: Failed to open file %s\n", fullPath.c_str());
+            Log::Error("FileIO::ReadTextFile: Failed to open file {}\n", fullPath);
             return "";
         }
 
@@ -34,7 +36,7 @@ namespace lumina
         std::ofstream file(fullPath);
         if (!file.is_open())
         {
-            printf("FileIO::WriteTextFile: Failed to open file %s\n", fullPath.c_str());
+            Log::Error("FileIO::WriteTextFile: Failed to open file {}\n", fullPath);
             return false;
         }
 
@@ -48,7 +50,7 @@ namespace lumina
         std::ifstream file(fullPath, std::ios::binary | std::ios::ate);
         if (!file.is_open())
         {
-            printf("FileIO::ReadBinaryFile: Failed to open file %s\n", fullPath.c_str());
+            Log::Error("FileIO::ReadBinaryFile: Failed to open file {}\n", fullPath);
             return {};
         }
 
@@ -69,7 +71,7 @@ namespace lumina
         std::ofstream file(fullPath, std::ios::binary);
         if (!file.is_open())
         {
-            printf("FileIO::WriteBinaryFile: Failed to open file %s\n", fullPath.c_str());
+            Log::Error("FileIO::WriteBinaryFile: Failed to open file {}\n", fullPath);
             return false;
         }
 
