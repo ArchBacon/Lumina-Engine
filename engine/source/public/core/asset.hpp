@@ -1,4 +1,5 @@
 ﻿#pragma once
+
 #include <string>
 
 namespace lumina
@@ -25,23 +26,23 @@ namespace lumina
         AssetType type;
         std::string filePath;
 
-        Asset(AssetType type) : id(0), type(type) {}
+        Asset(const AssetType type) : id(0), type(type) {}
 
         virtual ~Asset();
 
         virtual void Reload() {}
 
-        static size_t GenerateID(const std::string& path)
+        [[nodiscard]] static size_t GenerateID(const std::string& path)
         {
             return std::hash<std::string> {}(path);
         }
 
-        static size_t GetNextID()
+        [[nodiscard]] static size_t GetNextID()
         {
             return nextID++;
         }
 
-        static const std::string& GetFilePath(const std::string& path)
+        [[nodiscard]] static const std::string& GetFilePath(const std::string& path)
         {
             return path;
         }

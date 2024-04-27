@@ -13,7 +13,8 @@ namespace lumina
     {
     private:
         friend class Engine;
-        std::unordered_map<uint32_t, std::shared_ptr<Asset>> assets;
+        
+        std::unordered_map<uint32_t, std::shared_ptr<Asset>> assets {};
 
     public:
         template <typename T, typename... Args>
@@ -36,7 +37,7 @@ namespace lumina
             return std::static_pointer_cast<T>(assets[id]);
         }
 
-        // TODO: Make this Aysnc
+        // TODO: Make this Async
         template <typename T, typename... Args>
         std::shared_ptr<T> LoadAsset(Args&&... args)
         {

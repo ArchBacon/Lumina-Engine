@@ -8,7 +8,7 @@ namespace lumina
     {
         for (auto it = assets.begin(); it != assets.end();)
         {
-            //If the asset is not being used by any other object, unload it.
+            // If the asset is not being used by any other object, unload it.
             if (it->second.use_count() == 1)
             {
                 it = assets.erase(it);

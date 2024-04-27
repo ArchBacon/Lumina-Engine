@@ -31,7 +31,9 @@ namespace lumina
         }
 
         [[nodiscard]] AssetManager& AssetManager() const
-        { return *assetManager; }
+        {
+            return *assetManager;
+        }
     };
 } // namespace lumina
 
