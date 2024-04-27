@@ -20,7 +20,7 @@ namespace lumina
      */
     class Log
     {
-        inline static std::shared_ptr<spdlog::logger> logger;
+        inline static std::shared_ptr<spdlog::logger> logger {};
 
     public:
         static void Init()
