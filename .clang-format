@@ -214,7 +214,6 @@ RequiresClausePosition: OwnLine
 RequiresExpressionIndentation: OuterScope
 SeparateDefinitionBlocks: Always
 ShortNamespaceLines: 0
-SkipMacroDefinitionBody: false
 SortIncludes: CaseInsensitive
 SortJavaStaticImport: Before
 SortUsingDeclarations: Lexicographic
