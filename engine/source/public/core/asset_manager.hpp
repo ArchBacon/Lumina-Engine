@@ -13,7 +13,7 @@ namespace lumina
     {
     private:
         friend class Engine;
-        
+
         std::unordered_map<uint32_t, std::shared_ptr<Asset>> assets {};
 
     public:
