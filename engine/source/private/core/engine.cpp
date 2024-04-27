@@ -1,6 +1,7 @@
 ﻿#include "core/engine.hpp"
-#include "core/log.hpp"
+
 #include "core/fileio.hpp"
+#include "core/log.hpp"
 
 #include <chrono>
 #include <SDL/SDL.h>
