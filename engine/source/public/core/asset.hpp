@@ -52,17 +52,17 @@ namespace lumina
         Asset& operator=(Asset&& other)      = delete;
         Asset& operator=(const Asset& other) = delete;
 
-        size_t GetID() const
+        [[nodiscard]] size_t GetID() const
         {
             return id;
         }
 
-        AssetType GetType() const
+        [[nodiscard]] AssetType GetType() const
         {
             return type;
         }
 
-        const std::string& GetFilePath() const
+        [[nodiscard]] const std::string& GetFilePath() const
         {
             return filePath;
         }
