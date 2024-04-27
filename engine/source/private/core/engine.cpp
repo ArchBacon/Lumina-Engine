@@ -1,7 +1,8 @@
 ﻿#include "core/engine.hpp"
 
+#include "core/log.hpp"
+
 #include <chrono>
-#include <iostream>
 #include <SDL/SDL.h>
 
 lumina::Engine gEngine;
@@ -10,6 +11,8 @@ namespace lumina
 {
     void Engine::Initialize()
     {
+        Log::Init();
+
         // Initialize SDL and create a window
         SDL_Init(SDL_INIT_VIDEO);
 
@@ -28,8 +31,7 @@ namespace lumina
             const float deltaTime  = static_cast<float>(std::chrono::duration_cast<std::chrono::microseconds>(currentTime - previousTime).count()) / 1000000.0f;
             previousTime           = currentTime;
 
-            std::cout << "Engine::Run DeltaTime: " << deltaTime << "s"
-                      << "\n";
+            Log::Trace("Engine::Run {}s", deltaTime);
             while (SDL_PollEvent(&e) != 0)
             {
                 // Close the window when user alt-f4s or clicks the X button
