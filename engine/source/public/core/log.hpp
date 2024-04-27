@@ -1,8 +1,8 @@
 ﻿#pragma once
 
 #include <memory>
-#include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
+#include <spdlog/spdlog.h>
 
 namespace lumina
 {
@@ -31,15 +31,27 @@ namespace lumina
         }
 
         template <typename... Args>
-        static void Trace(Args... args) { logger->trace(std::forward<Args>(args)...); }
+        static void Trace(Args... args)
+        {
+            logger->trace(std::forward<Args>(args)...);
+        }
 
         template <typename... Args>
-        static void Info(Args... args) { logger->info(std::forward<Args>(args)...); }
+        static void Info(Args... args)
+        {
+            logger->info(std::forward<Args>(args)...);
+        }
 
         template <typename... Args>
-        static void Warn(Args... args) { logger->warn(std::forward<Args>(args)...); }
+        static void Warn(Args... args)
+        {
+            logger->warn(std::forward<Args>(args)...);
+        }
 
         template <typename... Args>
-        static void Error(Args... args) { logger->error(std::forward<Args>(args)...); }
+        static void Error(Args... args)
+        {
+            logger->error(std::forward<Args>(args)...);
+        }
     };
 } // namespace lumina
