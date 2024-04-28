@@ -79,7 +79,10 @@ namespace lumina
         return file.good();
     }
 
-    std::string FileIO::GetFilePath(const Directory directory, const std::string& filePath) { return directories[directory] + filePath; }
+    std::string FileIO::GetFilePath(const Directory directory, const std::string& filePath)
+    {
+        return directories[directory] + filePath;
+    }
 
     bool FileIO::FileExists(const Directory directory, const std::string& filePath)
     {
