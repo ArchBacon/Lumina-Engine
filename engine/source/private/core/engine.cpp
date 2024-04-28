@@ -1,10 +1,11 @@
 ﻿#include "core/engine.hpp"
 
-#include "core/fileio.hpp"
-#include "core/log.hpp"
+#include <SDL/SDL.h>
 
 #include <chrono>
-#include <SDL/SDL.h>
+
+#include "core/fileio.hpp"
+#include "core/log.hpp"
 
 lumina::Engine gEngine;
 
@@ -50,8 +51,5 @@ namespace lumina
         }
     }
 
-    void Engine::Shutdown()
-    {
-        SDL_DestroyWindow(window);
-    }
+    void Engine::Shutdown() { SDL_DestroyWindow(window); }
 } // namespace lumina
