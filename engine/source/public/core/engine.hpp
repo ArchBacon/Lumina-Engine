@@ -1,8 +1,8 @@
 ﻿#pragma once
 
-#include "types.hpp"
-
 #include <memory>
+
+#include "types.hpp"
 
 struct SDL_Window;
 
@@ -23,10 +23,7 @@ namespace lumina
         void Run();
         void Shutdown();
 
-        [[nodiscard]] FileIO& FileIO() const
-        {
-            return *fileIO;
-        }
+        [[nodiscard]] FileIO& FileIO() const { return *fileIO; }
     };
 } // namespace lumina
 
