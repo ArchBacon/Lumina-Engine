@@ -14,8 +14,8 @@ namespace lumina
     class Engine
     {
         std::unique_ptr<FileIO> fileIO {nullptr};
-        std::unique_ptr<AssetManager> assetManager {nullptr};        
-        
+        std::unique_ptr<AssetManager> assetManager {nullptr};
+
     public:
         int2 windowExtent {1024, 576};
         SDL_Window* window {nullptr};
