@@ -11,7 +11,6 @@ namespace lumina
 
     class AssetManager
     {
-    private:
         friend class Engine;
 
         std::unordered_map<uint32_t, std::shared_ptr<Asset>> assets {};

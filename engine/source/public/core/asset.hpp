@@ -18,7 +18,6 @@ namespace lumina
     {
         friend class AssetManager;
 
-    private:
         static size_t nextID;
 
     protected:
@@ -39,7 +38,7 @@ namespace lumina
 
         [[nodiscard]] static size_t GetNextID()
         {
-            return nextID++;
+            return ++nextID;
         }
 
         [[nodiscard]] static const std::string& GetFilePath(const std::string& path)
