@@ -1,14 +1,22 @@
 ﻿#pragma once
 
 #include "core/types.hpp"
-#include <vkbootstrap/VkBootstrap.h>
+
 #include <memory>
+#include <vkbootstrap/VkBootstrap.h>
 
 struct SDL_Window;
 
 namespace lumina
 {
     class FileIO;
+
+    struct FrameData
+    {
+        VkCommandPool commandPool {};
+        VkCommandBuffer commandBuffer {};
+    };
+    constexpr uint8_t FRAME_OVERLAP = 2;
 
     class Engine
     {
@@ -25,6 +33,11 @@ namespace lumina
         std::vector<VkImage> swapchainImages {};
         std::vector<VkImageView> swapchainImageViews {};
         VkExtent2D swapchainExtent {};
+
+        uint32_t frameNumber {0};
+        FrameData frames[FRAME_OVERLAP];
+        VkQueue graphicsQueue {};
+        uint32_t graphicsQueueFamily {};
         
         int2 windowExtent {1024, 576};
         SDL_Window* window {nullptr};
@@ -48,6 +61,8 @@ namespace lumina
 
         void CreateSwapchain(uint32_t width, uint32_t height);
         void DestroySwapchain();
+
+        FrameData& GetCurrentFrame() { return frames[frameNumber % FRAME_OVERLAP]; }
     };
 } // namespace lumina
 

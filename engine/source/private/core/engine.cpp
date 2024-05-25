@@ -1,5 +1,7 @@
 ﻿#include "engine.hpp"
 
+#include "../rendering/vk_initializers.hpp"
+#include "../rendering/vk_types.hpp"
 #include "core/fileio.hpp"
 #include "core/log.hpp"
 
@@ -60,6 +62,13 @@ namespace lumina
 
     void Engine::Shutdown()
     {
+        vkDeviceWaitIdle(device);
+
+        for (int i = 0; i < FRAME_OVERLAP; i++)
+        {
+            vkDestroyCommandPool(device, frames[i].commandPool, nullptr);
+        }
+        
         DestroySwapchain();
 
         vkDestroySurfaceKHR(instance, surface, nullptr);
@@ -115,6 +124,10 @@ namespace lumina
         // Get the VkDevice handle used in the rest of a vulkan application
         device = vkbDevice.device;
         chosenGPU = physicalDevice.physical_device;
+
+        // Use vkbootstrap to get a Graphics queue
+        graphicsQueue = vkbDevice.get_queue(vkb::QueueType::graphics).value();
+        graphicsQueueFamily = vkbDevice.get_queue_index(vkb::QueueType::graphics).value();
     }
     
     void Engine::InitSwapchain()
@@ -122,15 +135,29 @@ namespace lumina
         CreateSwapchain(windowExtent.x, windowExtent.y);
     }
     
-    void Engine::InitCommands() {}
+    void Engine::InitCommands()
+    {
+        // Create a command pool for commands submitted to the graphics queue.
+        // We also want the pool to allow for resetting of individual command buffers
+        VkCommandPoolCreateInfo commandPoolInfo = vkinit::CommandPoolCreateInfo(graphicsQueueFamily, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
+
+        for (int i = 0; i < FRAME_OVERLAP; i++)
+        {
+            VK_CHECK(vkCreateCommandPool(device, &commandPoolInfo, nullptr, &frames[i].commandPool));
+
+            // Allocate the default command buffer that we will use for rendering
+            VkCommandBufferAllocateInfo commandAllocateInfo = vkinit::CommandBufferAllocateInfo(frames[i].commandPool, 1);
+
+            VK_CHECK(vkAllocateCommandBuffers(device, &commandAllocateInfo, &frames[i].commandBuffer));
+        }
+    }
     
     void Engine::InitSyncStructures() {}
     
     void Engine::CreateSwapchain(
-        uint32_t width,
-        uint32_t height
-    )
-    {
+        const uint32_t width,
+        const uint32_t height
+    ) {
         vkb::SwapchainBuilder swapchainBuilder {chosenGPU, device, surface};
         swapchainImageFormat = VK_FORMAT_B8G8R8A8_UNORM;
         vkb::Swapchain vkbSwapchain = swapchainBuilder
