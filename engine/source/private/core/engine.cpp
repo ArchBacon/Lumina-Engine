@@ -9,7 +9,7 @@
 
 lumina::Engine gEngine;
 
-constexpr bool USE_VALIDATION_LAYERS = false;
+constexpr bool USE_VALIDATION_LAYERS = true;
 
 namespace lumina
 {
