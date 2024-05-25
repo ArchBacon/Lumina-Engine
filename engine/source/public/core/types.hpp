@@ -18,5 +18,5 @@ namespace lumina
     typedef glm::vec2 float2;
     typedef glm::vec3 float3;
     typedef glm::vec4 float4;
-    
+
 } // namespace lumina
