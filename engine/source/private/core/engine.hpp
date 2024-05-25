@@ -13,11 +13,18 @@ namespace lumina
     class Engine
     {
         std::unique_ptr<FileIO> fileIO {nullptr};
+        
         VkInstance instance {}; // Vulkan library handle
         VkDebugUtilsMessengerEXT debugMessenger {}; // Vulkan debug output handle
         VkPhysicalDevice chosenGPU {}; // GPU Chosen as the default device
         VkDevice device {}; // Vulkan device for commands
         VkSurfaceKHR surface {}; // Vulkan window surface
+        VkSwapchainKHR swapchain {};
+        VkFormat swapchainImageFormat {};
+
+        std::vector<VkImage> swapchainImages {};
+        std::vector<VkImageView> swapchainImageViews {};
+        VkExtent2D swapchainExtent {};
         
         int2 windowExtent {1024, 576};
         SDL_Window* window {nullptr};
@@ -38,6 +45,9 @@ namespace lumina
         void InitSwapchain();
         void InitCommands();
         void InitSyncStructures();
+
+        void CreateSwapchain(uint32_t width, uint32_t height);
+        void DestroySwapchain();
     };
 } // namespace lumina
 
