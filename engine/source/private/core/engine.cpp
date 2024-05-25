@@ -1,5 +1,6 @@
 ﻿#include "core/engine.hpp"
 
+#include "core/asset_manager.hpp"
 #include "core/fileio.hpp"
 #include "core/log.hpp"
 
@@ -18,6 +19,12 @@ namespace lumina
         if (!fileIO)
         {
             throw std::runtime_error("FileIO is not initialized, this should never happen!");
+        }
+
+        assetManager = std::make_unique<lumina::AssetManager>();
+        if (!assetManager)
+        {
+            throw std::runtime_error("AssetManager is not initialized, this should never happen!");
         }
 
         // Initialize SDL and create a window
