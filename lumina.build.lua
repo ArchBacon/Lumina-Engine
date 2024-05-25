@@ -28,6 +28,7 @@ project "Engine"
     includedirs {
         "%{prj.name}/source/public/",
         "$(VULKAN_SDK)/include/",
+        "%{prj.name}/thirdparty/", -- Include third party libs that are not in an `include` directory
         "%{prj.name}/thirdparty/*/include",
     }
 
