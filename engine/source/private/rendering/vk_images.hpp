@@ -5,4 +5,4 @@
 namespace vkutil
 {
     void TransitionImage(VkCommandBuffer command, VkImage image, VkImageLayout currentLayout, VkImageLayout newLayout);
-}
+} // namespace vkutil

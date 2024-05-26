@@ -60,8 +60,14 @@ namespace lumina
 
                 if (e.type == SDL_WINDOWEVENT)
                 {
-                    if (e.window.event == SDL_WINDOWEVENT_MINIMIZED) { stopRendering = true; }
-                    if (e.window.event == SDL_WINDOWEVENT_RESTORED) { stopRendering = false; }
+                    if (e.window.event == SDL_WINDOWEVENT_MINIMIZED)
+                    {
+                        stopRendering = true;
+                    }
+                    if (e.window.event == SDL_WINDOWEVENT_RESTORED)
+                    {
+                        stopRendering = false;
+                    }
                 }
             }
 
@@ -76,11 +82,11 @@ namespace lumina
             Draw();
         }
     }
-    
+
     void Engine::Draw()
     {
         constexpr uint32_t singleSecond = 1000000000;
-        
+
         // Wait until the GPU has finished rendering the last frame. Timeout of 1 second
         VK_CHECK(vkWaitForFences(device, 1, &GetCurrentFrame().renderFence, true, singleSecond));
         VK_CHECK(vkResetFences(device, 1, &GetCurrentFrame().renderFence));
@@ -107,8 +113,8 @@ namespace lumina
 
         // Make a clear-color from the frame number. This will flash with a 120 frame period.
         VkClearColorValue clearColor {};
-        float flash  = std::abs(std::sin(static_cast<float>(frameNumber) / 120.f));
-        clearColor = {{0.0f, 0.0f, flash, 1.0f}};
+        float flash = std::abs(std::sin(static_cast<float>(frameNumber) / 120.f));
+        clearColor  = {{0.0f, 0.0f, flash, 1.0f}};
 
         VkImageSubresourceRange clearRange = vkinit::ImageSubresourceRange(VK_IMAGE_ASPECT_COLOR_BIT);
 
@@ -140,12 +146,12 @@ namespace lumina
         // We want to wait on the renderSemaphore for that, as its necessary that
         // drawing commands have finished before the image is displayed to the user
         VkPresentInfoKHR presentInfo {};
-        presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-        presentInfo.pNext = nullptr;
-        presentInfo.pSwapchains = &swapchain;
+        presentInfo.sType          = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+        presentInfo.pNext          = nullptr;
+        presentInfo.pSwapchains    = &swapchain;
         presentInfo.swapchainCount = 1;
 
-        presentInfo.pWaitSemaphores = &GetCurrentFrame().renderSemaphore;
+        presentInfo.pWaitSemaphores    = &GetCurrentFrame().renderSemaphore;
         presentInfo.waitSemaphoreCount = 1;
 
         presentInfo.pImageIndices = &swapchainImageIndex;
@@ -169,7 +175,7 @@ namespace lumina
             vkDestroySemaphore(device, frames[i].renderSemaphore, nullptr);
             vkDestroySemaphore(device, frames[i].swapchainSemaphore, nullptr);
         }
-        
+
         DestroySwapchain();
 
         vkDestroySurfaceKHR(instance, surface, nullptr);
@@ -186,56 +192,51 @@ namespace lumina
 
         // Make the vulkan instance with basic debug features
         auto resultInstance = builder.set_app_name("Lumina Engine")
-            .request_validation_layers(USE_VALIDATION_LAYERS)
-            .use_default_debug_messenger()
-            .require_api_version(1, 3, 0)
-            .build();
+                                  .request_validation_layers(USE_VALIDATION_LAYERS)
+                                  .use_default_debug_messenger()
+                                  .require_api_version(1, 3, 0)
+                                  .build();
 
         vkb::Instance vkbInstance = resultInstance.value();
-        instance = vkbInstance.instance;
-        debugMessenger = vkbInstance.debug_messenger;
+        instance                  = vkbInstance.instance;
+        debugMessenger            = vkbInstance.debug_messenger;
 
         SDL_Vulkan_CreateSurface(window, instance, &surface);
 
         // Vulkan 1.3 features
-        VkPhysicalDeviceVulkan13Features features13{};
+        VkPhysicalDeviceVulkan13Features features13 {};
         features13.dynamicRendering = true;
         features13.synchronization2 = true;
 
         // Vulkan 1.2 features
-        VkPhysicalDeviceVulkan12Features features12{};
+        VkPhysicalDeviceVulkan12Features features12 {};
         features12.bufferDeviceAddress = true;
-        features12.descriptorIndexing = true;
+        features12.descriptorIndexing  = true;
 
         // Use vkbootstrap to select a GPU
         // We want a GPU that can write to the SDL surface and supports vulkan 1.3 with the correct features.
         vkb::PhysicalDeviceSelector selector {vkbInstance};
-        vkb::PhysicalDevice physicalDevice = selector
-            .set_minimum_version(1, 3)
-            .set_required_features_13(features13)
-            .set_required_features_12(features12)
-            .set_surface(surface)
-            .select()
-            .value();
+        vkb::PhysicalDevice physicalDevice =
+            selector.set_minimum_version(1, 3).set_required_features_13(features13).set_required_features_12(features12).set_surface(surface).select().value();
 
         // Create the final vulkan device
         vkb::DeviceBuilder deviceBuilder {physicalDevice};
         vkb::Device vkbDevice = deviceBuilder.build().value();
 
         // Get the VkDevice handle used in the rest of a vulkan application
-        device = vkbDevice.device;
+        device    = vkbDevice.device;
         chosenGPU = physicalDevice.physical_device;
 
         // Use vkbootstrap to get a Graphics queue
-        graphicsQueue = vkbDevice.get_queue(vkb::QueueType::graphics).value();
+        graphicsQueue       = vkbDevice.get_queue(vkb::QueueType::graphics).value();
         graphicsQueueFamily = vkbDevice.get_queue_index(vkb::QueueType::graphics).value();
     }
-    
+
     void Engine::InitSwapchain()
     {
         CreateSwapchain(windowExtent.x, windowExtent.y);
     }
-    
+
     void Engine::InitCommands()
     {
         // Create a command pool for commands submitted to the graphics queue.
@@ -252,14 +253,14 @@ namespace lumina
             VK_CHECK(vkAllocateCommandBuffers(device, &commandAllocateInfo, &frames[i].commandBuffer));
         }
     }
-    
+
     void Engine::InitSyncStructures()
     {
         // Create synchronization structures
         // One fence to control when the GPU has finished rendering the frame,
         // and 2 semaphores to synchronize rendering with the swapchain.
         // We want the fence to start signalled, so we can wait on it on the first frame
-        VkFenceCreateInfo fenceCreateInfo = vkinit::FenceCreateInfo(VK_FENCE_CREATE_SIGNALED_BIT);
+        VkFenceCreateInfo fenceCreateInfo         = vkinit::FenceCreateInfo(VK_FENCE_CREATE_SIGNALED_BIT);
         VkSemaphoreCreateInfo semaphoreCreateInfo = vkinit::SemaphoreCreateInfo();
 
         for (int i = 0; i < FRAME_OVERLAP; i++)
@@ -270,28 +271,25 @@ namespace lumina
             VK_CHECK(vkCreateSemaphore(device, &semaphoreCreateInfo, nullptr, &frames[i].renderSemaphore));
         }
     }
-    
-    void Engine::CreateSwapchain(
-        const uint32_t width,
-        const uint32_t height
-    ) {
+
+    void Engine::CreateSwapchain(const uint32_t width, const uint32_t height)
+    {
         vkb::SwapchainBuilder swapchainBuilder {chosenGPU, device, surface};
-        swapchainImageFormat = VK_FORMAT_B8G8R8A8_UNORM;
-        vkb::Swapchain vkbSwapchain = swapchainBuilder
-            .set_desired_format(VkSurfaceFormatKHR{swapchainImageFormat, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR})
-            .set_desired_present_mode(VK_PRESENT_MODE_FIFO_KHR)
-            .set_desired_extent(width, height)
-            .add_image_usage_flags(VK_IMAGE_USAGE_TRANSFER_DST_BIT)
-            .build()
-            .value();
+        swapchainImageFormat        = VK_FORMAT_B8G8R8A8_UNORM;
+        vkb::Swapchain vkbSwapchain = swapchainBuilder.set_desired_format(VkSurfaceFormatKHR {swapchainImageFormat, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR})
+                                          .set_desired_present_mode(VK_PRESENT_MODE_FIFO_KHR)
+                                          .set_desired_extent(width, height)
+                                          .add_image_usage_flags(VK_IMAGE_USAGE_TRANSFER_DST_BIT)
+                                          .build()
+                                          .value();
 
         swapchainExtent = vkbSwapchain.extent;
         // Store swapchain and its related images
-        swapchain = vkbSwapchain.swapchain;
-        swapchainImages = vkbSwapchain.get_images().value();
+        swapchain           = vkbSwapchain.swapchain;
+        swapchainImages     = vkbSwapchain.get_images().value();
         swapchainImageViews = vkbSwapchain.get_image_views().value();
     }
-    
+
     void Engine::DestroySwapchain()
     {
         vkDestroySwapchainKHR(device, swapchain, nullptr);

@@ -2,4 +2,6 @@
 
 #include "vk_types.hpp"
 
-namespace vkutil {};
+namespace vkutil
+{
+};
