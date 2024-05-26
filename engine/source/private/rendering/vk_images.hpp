@@ -2,4 +2,7 @@
 
 #include <vulkan/vulkan.h>
 
-namespace vkutil {}
+namespace vkutil
+{
+    void TransitionImage(VkCommandBuffer command, VkImage image, VkImageLayout currentLayout, VkImageLayout newLayout);
+}

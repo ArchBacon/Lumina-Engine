@@ -15,6 +15,9 @@ namespace lumina
     {
         VkCommandPool commandPool {};
         VkCommandBuffer commandBuffer {};
+        VkSemaphore swapchainSemaphore {};
+        VkSemaphore renderSemaphore {};
+        VkFence renderFence {};
     };
     constexpr uint8_t FRAME_OVERLAP = 2;
 
@@ -42,10 +45,14 @@ namespace lumina
         int2 windowExtent {1024, 576};
         SDL_Window* window {nullptr};
         bool running {true};
+        bool stopRendering {false};
         
     public:
         void Initialize();
         void Run();
+        // This should probably be abstracted away out of the engine class
+        // Creating a Graphics API of sorts
+        void Draw();
         void Shutdown();
 
         [[nodiscard]] FileIO& FileIO() const
