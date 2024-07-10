@@ -7,6 +7,9 @@
 #include <SDL/SDL.h>
 #include <SDL/SDL_vulkan.h>
 
+#define VMA_IMPLEMENTATION
+#include <vma/vk_mem_alloc.h>
+
 constexpr bool USE_VALIDATION_LAYERS = true;
 
 namespace lumina
@@ -26,7 +29,7 @@ namespace lumina
         SDL_Init(SDL_INIT_VIDEO);
 
         const SDL_WindowFlags windowFlags = SDL_WINDOW_VULKAN;
-        window = SDL_CreateWindow("Lumina", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, windowExtent.x, windowExtent.y, windowFlags);
+        window = SDL_CreateWindow("Lumina Engine", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, windowExtent.width, windowExtent.height, windowFlags);
 
         InitVulkan();
         InitSwapchain();
@@ -69,46 +72,62 @@ namespace lumina
 
         graphicsQueue = vkbDevice.get_queue(vkb::QueueType::graphics).value();
         graphicsQueueFamily = vkbDevice.get_queue_index(vkb::QueueType::graphics).value();
+
+        VmaAllocatorCreateInfo allocatorInfo {};
+        allocatorInfo.physicalDevice = chosenGPU;
+        allocatorInfo.device = device;
+        allocatorInfo.instance = instance;
+        allocatorInfo.flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
+        vmaCreateAllocator(&allocatorInfo, &allocator);
+
+        mainDeletionQueue.PushFunction([&]() {
+            vmaDestroyAllocator(allocator);
+        });
     }
 
     void VulkanRenderer::Draw()
     {
         constexpr uint32_t singleSecond = 1000000000;
 
-        VK_CHECK(vkWaitForFences(device, 1, &GetCurrentFrame().renderFence, VK_TRUE, singleSecond));
-        VK_CHECK(vkResetFences(device, 1, &GetCurrentFrame().renderFence));
-
+        VK_CHECK(vkWaitForFences(device, 1, &GetCurrentFrame().renderFence, true, singleSecond));
+        
+        GetCurrentFrame().deletionQueue.Flush();
+        
         uint32_t swapchainImageIndex {};
         VK_CHECK(vkAcquireNextImageKHR(device, swapchain, singleSecond, GetCurrentFrame().swapchainSemaphore, nullptr, &swapchainImageIndex));
 
-        VkCommandBuffer command = GetCurrentFrame().commandBuffer;
+        VK_CHECK(vkResetFences(device, 1, &GetCurrentFrame().renderFence));
+
+        const VkCommandBuffer command = GetCurrentFrame().commandBuffer;
 
         VK_CHECK(vkResetCommandBuffer(command, 0));
 
-        VkCommandBufferBeginInfo commandBeginInfo = vkinit::CommandBufferBeginInfo(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+        const VkCommandBufferBeginInfo commandBeginInfo = vkinit::CommandBufferBeginInfo(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
 
+        drawExtent.width = drawImage.imageExtent.width;
+        drawExtent.height = drawImage.imageExtent.height;
+        
         VK_CHECK(vkBeginCommandBuffer(command, &commandBeginInfo));
 
-        vkutil::TransitionImage(command, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+        vkutil::TransitionImage(command, drawImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
 
-        VkClearColorValue clearColor = {0.0f, 0.0f, 0.0f, 1.0f};
-        float flash = std::abs(std::sin(static_cast<float>(frameNumber) / 120.f));
-        clearColor = { 0.0f, 0.0f, flash, 1.0f };
+        DrawBackground(command);
 
-        VkImageSubresourceRange clearRange = vkinit::ImageSubresourceRange(VK_IMAGE_ASPECT_COLOR_BIT);
+        vkutil::TransitionImage(command, drawImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+        vkutil::TransitionImage(command, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
-        vkCmdClearColorImage(command, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_GENERAL, &clearColor, 1, &clearRange);
+        vkutil::CopyImageToImage(command, drawImage.image, swapchainImages[swapchainImageIndex], drawExtent, swapchainExtent);
 
-        vkutil::TransitionImage(command, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
-
+        vkutil::TransitionImage(command, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+        
         VK_CHECK(vkEndCommandBuffer(command));
 
-        VkCommandBufferSubmitInfo commandInfo = vkinit::CommandBufferSubmitInfo(command);
+        const VkCommandBufferSubmitInfo commandInfo = vkinit::CommandBufferSubmitInfo(command);
 
-        VkSemaphoreSubmitInfo waitInfo = vkinit::SemaphoreSubmitInfo(VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT_KHR, GetCurrentFrame().swapchainSemaphore);
-        VkSemaphoreSubmitInfo signalInfo = vkinit::SemaphoreSubmitInfo(VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, GetCurrentFrame().renderSemaphore);
+        const VkSemaphoreSubmitInfo waitInfo = vkinit::SemaphoreSubmitInfo(VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT_KHR, GetCurrentFrame().swapchainSemaphore);
+        const VkSemaphoreSubmitInfo signalInfo = vkinit::SemaphoreSubmitInfo(VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, GetCurrentFrame().renderSemaphore);
 
-        VkSubmitInfo2 submit = vkinit::SubmitInfo(&commandInfo, &signalInfo, &waitInfo);
+        const VkSubmitInfo2 submit = vkinit::SubmitInfo(&commandInfo, &signalInfo, &waitInfo);
 
         VK_CHECK(vkQueueSubmit2(graphicsQueue, 1, &submit, GetCurrentFrame().renderFence));
 
@@ -128,20 +147,35 @@ namespace lumina
         ++frameNumber;
     }
 
+    void VulkanRenderer::DrawBackground(VkCommandBuffer command)
+    {
+        VkClearColorValue clearColor = {0.0f, 0.0f, 0.0f, 1.0f};
+        const float flash = std::abs(std::sin(static_cast<float>(frameNumber) / 120.f));
+        clearColor = {{0.0f, 0.0f, flash, 1.0f}};
+
+        const VkImageSubresourceRange clearRange = vkinit::ImageSubresourceRange(VK_IMAGE_ASPECT_COLOR_BIT);
+
+        vkCmdClearColorImage(command, drawImage.image, VK_IMAGE_LAYOUT_GENERAL, &clearColor, 1, &clearRange);
+    }
+
     void VulkanRenderer::Shutdown()
     {
         vkDeviceWaitIdle(device);
 
-        for (int i = 0; i < FRAME_OVERLAP; i++)
+        for (auto& frame : frames)
         {
-            vkDestroyCommandPool(device, frames[i].commandPool, nullptr);
+            vkDestroyCommandPool(device, frame.commandPool, nullptr);
 
             // Destroy sync objects
-            vkDestroyFence(device, frames[i].renderFence, nullptr);
-            vkDestroySemaphore(device, frames[i].renderSemaphore, nullptr);
-            vkDestroySemaphore(device, frames[i].swapchainSemaphore, nullptr);
+            vkDestroyFence(device, frame.renderFence, nullptr);
+            vkDestroySemaphore(device, frame.renderSemaphore, nullptr);
+            vkDestroySemaphore(device, frame.swapchainSemaphore, nullptr);
+
+            frame.deletionQueue.Flush();
         }
 
+        mainDeletionQueue.Flush();
+        
         DestroySwapchain();
 
         vkDestroySurfaceKHR(instance, surface, nullptr);
@@ -152,11 +186,37 @@ namespace lumina
         SDL_DestroyWindow(window);            
     }
 
-
-
     void VulkanRenderer::InitSwapchain()
     {
-        CreateSwapchain(windowExtent.x, windowExtent.y);
+        CreateSwapchain(windowExtent.width, windowExtent.height);
+
+        VkExtent3D drawImageExtent = {windowExtent.width, windowExtent.height, 1};
+
+        drawImage.imageFormat = VK_FORMAT_R16G16B16A16_SFLOAT;
+        drawImage.imageExtent = drawImageExtent;
+
+        VkImageUsageFlags drawImageUsages{};
+        drawImageUsages |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+        drawImageUsages |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+        drawImageUsages |= VK_IMAGE_USAGE_STORAGE_BIT;
+        drawImageUsages |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+
+        VkImageCreateInfo rimgInfo = vkinit::ImageCreateInfo(drawImage.imageFormat, drawImageUsages, drawImageExtent);
+
+        VmaAllocationCreateInfo rimgAllocationInfo {};
+        rimgAllocationInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+        rimgAllocationInfo.requiredFlags = static_cast<VkMemoryPropertyFlags>(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+        vmaCreateImage(allocator, &rimgInfo, &rimgAllocationInfo, &drawImage.image, &drawImage.allocation, nullptr);
+
+        VkImageViewCreateInfo viewInfo = vkinit::ImageviewCreateInfo(drawImage.imageFormat, drawImage.image, VK_IMAGE_ASPECT_COLOR_BIT);
+
+        VK_CHECK(vkCreateImageView(device, &viewInfo, nullptr, &drawImage.imageView));
+
+        mainDeletionQueue.PushFunction([&]() {
+            vkDestroyImageView(device, drawImage.imageView, nullptr);
+            vmaDestroyImage(allocator, drawImage.image, drawImage.allocation);
+        });
     }
 
     void VulkanRenderer::InitCommands()
@@ -184,7 +244,7 @@ namespace lumina
             VK_CHECK(vkCreateSemaphore(device, &semaphoreCreateInfo, nullptr, &frames[i].renderSemaphore));
         }
     }
-
+  
     void VulkanRenderer::CreateSwapchain(uint32_t width, uint32_t height)
     {
         vkb::SwapchainBuilder swapchainBuilder {chosenGPU, device, surface};

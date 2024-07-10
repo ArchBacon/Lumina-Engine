@@ -2,12 +2,35 @@
 #include "core/types.hpp"
 #include <memory>
 #include <vkbootstrap/VkBootstrap.h>
+#include <deque>
+#include <functional>
+#include <vma/vk_mem_alloc.h>
+#include "vk_types.hpp"
 
 struct SDL_Window;
 
 namespace lumina
 {
     class Engine;
+
+    struct DeletionQueue
+    {
+        std::deque<std::function<void()>> deletors {};
+
+        void PushFunction(std::function<void()>&& function)
+        {
+            deletors.push_back(function);
+        }
+
+        void Flush()
+        {
+            for (auto it = deletors.rbegin(); it != deletors.rend(); it++)
+            {
+                (*it)();
+            }
+            deletors.clear();
+        }
+    };
     
     struct FrameData
     {
@@ -16,6 +39,7 @@ namespace lumina
         VkSemaphore swapchainSemaphore {};
         VkSemaphore renderSemaphore {};
         VkFence renderFence {};
+        DeletionQueue deletionQueue {};
     };
 
     constexpr uint8_t FRAME_OVERLAP = 2;
@@ -51,7 +75,15 @@ namespace lumina
         VkQueue graphicsQueue {};
         uint32_t graphicsQueueFamily {};
 
-        int2 windowExtent {1080, 720};
+        DeletionQueue mainDeletionQueue {};
+
+        VmaAllocator allocator {};
+
+        //Draw Resources
+        AllocatedImage drawImage;
+        VkExtent2D drawExtent;
+        
+        VkExtent2D windowExtent {1080, 720};
         SDL_Window* window {nullptr};
         bool running {true};
         bool stopRendering {false};
@@ -66,6 +98,8 @@ namespace lumina
         void InitSwapchain();
         void InitCommands();
         void InitSyncStructures();
+
+        void DrawBackground(VkCommandBuffer command); //WIP
 
         void CreateSwapchain(uint32_t width, uint32_t height);
         void DestroySwapchain();
