@@ -17,16 +17,18 @@ project "Engine"
     objdir ("intermediate/" .. outputdir .. "/%{prj.name}")
 
     files {
-        --"%{prj.name}/source/**.hpp",
-        --"%{prj.name}/source/**.cpp",
         "%{prj.name}/source/public/**.hpp",
         "%{prj.name}/source/private/**.hpp",
         "%{prj.name}/source/private/**.cpp",
+        -- I don't want this included in the engine since it is an external file
+        -- Consider generating another project to include in this solution
+        "%{prj.name}/thirdparty/vkbootstrap/VkBootstrap.cpp",
     }
 
     includedirs {
         "%{prj.name}/source/public/",
         "$(VULKAN_SDK)/include/",
+        "%{prj.name}/thirdparty/", -- Include third party libs that are not in an `include` directory
         "%{prj.name}/thirdparty/*/include",
     }
 
