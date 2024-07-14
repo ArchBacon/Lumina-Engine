@@ -1,4 +1,5 @@
 ﻿#pragma once
+#include "vk_descriptors.hpp"
 #include "core/types.hpp"
 #include <memory>
 #include <vkbootstrap/VkBootstrap.h>
@@ -78,7 +79,13 @@ namespace lumina
         DeletionQueue mainDeletionQueue {};
 
         VmaAllocator allocator {};
+        DescriptorAllocator globalDescriptorAllocator {};
+        VkDescriptorSet drawImageDescriptor {};
+        VkDescriptorSetLayout drawImageDescriptorLayout {};
 
+        VkPipeline gradientPipeline {};
+        VkPipelineLayout gradientPipelineLayout {};
+        
         //Draw Resources
         AllocatedImage drawImage;
         VkExtent2D drawExtent;
@@ -98,6 +105,9 @@ namespace lumina
         void InitSwapchain();
         void InitCommands();
         void InitSyncStructures();
+        void InitDescriptors();
+        void InitPipelines();
+        void InitBackgroundPipelines();
 
         void DrawBackground(VkCommandBuffer command); //WIP
 

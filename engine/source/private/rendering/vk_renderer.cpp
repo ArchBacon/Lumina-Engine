@@ -8,6 +8,8 @@
 #include <SDL/SDL_vulkan.h>
 
 #define VMA_IMPLEMENTATION
+#include "vk_pipelines.hpp"
+
 #include <vma/vk_mem_alloc.h>
 
 constexpr bool USE_VALIDATION_LAYERS = true;
@@ -35,6 +37,8 @@ namespace lumina
         InitSwapchain();
         InitCommands();
         InitSyncStructures();
+        InitDescriptors();
+        InitPipelines();
     }
 
     void VulkanRenderer::InitVulkan()
@@ -155,7 +159,9 @@ namespace lumina
 
         const VkImageSubresourceRange clearRange = vkinit::ImageSubresourceRange(VK_IMAGE_ASPECT_COLOR_BIT);
 
-        vkCmdClearColorImage(command, drawImage.image, VK_IMAGE_LAYOUT_GENERAL, &clearColor, 1, &clearRange);
+        vkCmdBindPipeline(command, VK_PIPELINE_BIND_POINT_COMPUTE, gradientPipeline);
+        vkCmdBindDescriptorSets(command, VK_PIPELINE_BIND_POINT_COMPUTE, gradientPipelineLayout, 0, 1, &drawImageDescriptor, 0, nullptr);
+        vkCmdDispatch(command, drawExtent.width / 16, drawExtent.height / 16, 1);
     }
 
     void VulkanRenderer::Shutdown()
@@ -244,7 +250,84 @@ namespace lumina
             VK_CHECK(vkCreateSemaphore(device, &semaphoreCreateInfo, nullptr, &frames[i].renderSemaphore));
         }
     }
-  
+    void VulkanRenderer::InitDescriptors()
+    {
+        std::vector<DescriptorAllocator::PoolSizeRatio> sizes =
+            {{ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1}};
+
+        globalDescriptorAllocator.InitializePool(device, 10, sizes);
+
+        {
+            DescriptorLayoutBuilder builder;
+            builder.AddBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+            drawImageDescriptorLayout = builder.Build(device, VK_SHADER_STAGE_COMPUTE_BIT);
+        }
+
+        drawImageDescriptor = globalDescriptorAllocator.Allocate(device, drawImageDescriptorLayout);
+        VkDescriptorImageInfo imageInfo{};
+        imageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+        imageInfo.imageView = drawImage.imageView;
+
+        VkWriteDescriptorSet drawImageWrite {};
+        drawImageWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        drawImageWrite.pNext = nullptr;
+
+        drawImageWrite.dstBinding = 0;
+        drawImageWrite.dstSet = drawImageDescriptor;
+        drawImageWrite.descriptorCount = 1;
+        drawImageWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+        drawImageWrite.pImageInfo = &imageInfo;
+
+        vkUpdateDescriptorSets(device, 1, &drawImageWrite, 0, nullptr);
+
+        mainDeletionQueue.PushFunction([&]() {
+            globalDescriptorAllocator.DestroyPool(device);
+            vkDestroyDescriptorSetLayout(device, drawImageDescriptorLayout, nullptr);
+        });
+    }
+    void VulkanRenderer::InitPipelines()
+    {
+        InitBackgroundPipelines();
+    }
+    void VulkanRenderer::InitBackgroundPipelines()
+    {
+        VkPipelineLayoutCreateInfo computeLayout {};
+        computeLayout.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+        computeLayout.pNext = nullptr;
+        computeLayout.setLayoutCount = 1;
+        computeLayout.pSetLayouts = &drawImageDescriptorLayout;
+
+        VK_CHECK(vkCreatePipelineLayout(device, &computeLayout, nullptr, &gradientPipelineLayout));
+
+        VkShaderModule computeDrawShader;
+        if (!vkutil::LoadShaderModule("assets/shaders/gradient.comp.spv", device, &computeDrawShader))
+        {
+            Log::Error("Error when building Background Compute Shader\n");    
+        }
+
+        VkPipelineShaderStageCreateInfo stageInfo {};
+        stageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+        stageInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+        stageInfo.module = computeDrawShader;
+        stageInfo.pName = "main";
+        stageInfo.pNext = nullptr;
+
+        VkComputePipelineCreateInfo pipelineInfo {};
+        pipelineInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+        pipelineInfo.stage = stageInfo;
+        pipelineInfo.layout = gradientPipelineLayout;
+        pipelineInfo.pNext = nullptr;
+
+        VK_CHECK(vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &gradientPipeline));
+
+        vkDestroyShaderModule(device, computeDrawShader, nullptr);
+
+        mainDeletionQueue.PushFunction([&]() {
+            vkDestroyPipelineLayout(device, gradientPipelineLayout, nullptr);
+            vkDestroyPipeline(device, gradientPipeline, nullptr);
+        });
+    }
+
     void VulkanRenderer::CreateSwapchain(uint32_t width, uint32_t height)
     {
         vkb::SwapchainBuilder swapchainBuilder {chosenGPU, device, surface};
