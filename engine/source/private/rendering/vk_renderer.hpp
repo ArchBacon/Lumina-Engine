@@ -100,6 +100,8 @@ namespace lumina
         void Draw();
         void Shutdown();
 
+        void ImmediateSubmit(std::function<void(VkCommandBuffer cmd)>&& function);
+
     private:
         void InitVulkan();
         void InitSwapchain();
@@ -108,8 +110,10 @@ namespace lumina
         void InitDescriptors();
         void InitPipelines();
         void InitBackgroundPipelines();
+        void InitImGUI();
 
         void DrawBackground(VkCommandBuffer command); //WIP
+        void DrawImGui(VkCommandBuffer command, VkImageView targetImageView);
 
         void CreateSwapchain(uint32_t width, uint32_t height);
         void DestroySwapchain();

@@ -5,6 +5,10 @@
 #include "core/log.hpp"
 
 #include <chrono>
+
+#include "imgui/imgui.h"
+#include "imgui/imgui_impl_sdl2.h"
+#include "imgui/imgui_impl_vulkan.h"
 #include <SDL/SDL.h>
 
 lumina::Engine gEngine;
@@ -59,6 +63,7 @@ namespace lumina
                         stopRendering = false;
                     }
                 }
+                ImGui_ImplSDL2_ProcessEvent(&e);
             }
 
             // Do not draw if window is minimized
@@ -68,6 +73,13 @@ namespace lumina
                 std::this_thread::sleep_for(std::chrono::milliseconds(100));
                 continue;
             }
+
+            ImGui_ImplVulkan_NewFrame();
+            ImGui_ImplSDL2_NewFrame();
+            ImGui::NewFrame();
+
+            ImGui::ShowDemoWindow();
+            ImGui::Render();
 
             renderer->Draw();
         }

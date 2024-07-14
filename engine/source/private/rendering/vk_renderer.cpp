@@ -7,6 +7,10 @@
 #include <SDL/SDL.h>
 #include <SDL/SDL_vulkan.h>
 
+#include "imgui/imgui.h"
+#include "imgui/imgui_impl_sdl2.h"
+#include "imgui/imgui_impl_vulkan.h"
+
 #define VMA_IMPLEMENTATION
 #include "vk_pipelines.hpp"
 
@@ -39,6 +43,7 @@ namespace lumina
         InitSyncStructures();
         InitDescriptors();
         InitPipelines();
+        InitImGUI();
     }
 
     void VulkanRenderer::InitVulkan()
@@ -122,7 +127,11 @@ namespace lumina
 
         vkutil::CopyImageToImage(command, drawImage.image, swapchainImages[swapchainImageIndex], drawExtent, swapchainExtent);
 
-        vkutil::TransitionImage(command, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+        vkutil::TransitionImage(command, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+        
+        DrawImGui(command, swapchainImageViews[swapchainImageIndex]);
+        
+        vkutil::TransitionImage(command, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
         
         VK_CHECK(vkEndCommandBuffer(command));
 
@@ -162,6 +171,17 @@ namespace lumina
         vkCmdBindPipeline(command, VK_PIPELINE_BIND_POINT_COMPUTE, gradientPipeline);
         vkCmdBindDescriptorSets(command, VK_PIPELINE_BIND_POINT_COMPUTE, gradientPipelineLayout, 0, 1, &drawImageDescriptor, 0, nullptr);
         vkCmdDispatch(command, drawExtent.width / 16, drawExtent.height / 16, 1);
+    }
+    void VulkanRenderer::DrawImGui(VkCommandBuffer command, VkImageView targetImageView)
+    {
+        VkRenderingAttachmentInfo colorAttachment = vkinit::AttachmentInfo(targetImageView, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+        VkRenderingInfo renderInfo = vkinit::RenderingInfo(swapchainExtent, &colorAttachment, nullptr);
+
+        vkCmdBeginRendering(command, &renderInfo);
+
+        ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), command);
+
+        vkCmdEndRendering(command);
     }
 
     void VulkanRenderer::Shutdown()
@@ -325,6 +345,60 @@ namespace lumina
         mainDeletionQueue.PushFunction([&]() {
             vkDestroyPipelineLayout(device, gradientPipelineLayout, nullptr);
             vkDestroyPipeline(device, gradientPipeline, nullptr);
+        });
+    }
+    void VulkanRenderer::InitImGUI()
+    {
+        VkDescriptorPoolSize poolSize[] =
+            { { VK_DESCRIPTOR_TYPE_SAMPLER, 1000 },
+            { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000 },
+            { VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1000 },
+            { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1000 },
+            { VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1000 },
+            { VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1000 },
+            { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1000 },
+            { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1000 },
+            { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000 },
+            { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000 },
+            {VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1000 }};
+
+        VkDescriptorPoolCreateInfo poolInfo {};
+        poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+        poolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+        poolInfo.maxSets = 1000;
+        poolInfo.poolSizeCount = static_cast<uint32_t>(std::size(poolSize));
+        poolInfo.pPoolSizes = poolSize;
+        
+        VkDescriptorPool imGUIPool;
+        VK_CHECK(vkCreateDescriptorPool(device, &poolInfo, nullptr, &imGUIPool));
+
+        ImGui::CreateContext();
+        ImGui_ImplSDL2_InitForVulkan(window);
+
+        ImGui_ImplVulkan_InitInfo initInfo {};
+        initInfo.Instance = instance;
+        initInfo.PhysicalDevice = chosenGPU;
+        initInfo.Device = device;
+        initInfo.Queue = graphicsQueue;
+        initInfo.QueueFamily = graphicsQueueFamily;
+        initInfo.DescriptorPool = imGUIPool;
+        initInfo.MinImageCount = 3;
+        initInfo.ImageCount = 3;
+        initInfo.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
+        initInfo.UseDynamicRendering = true;
+        initInfo.Allocator = nullptr;
+        initInfo.CheckVkResultFn = nullptr;
+        
+        initInfo.PipelineRenderingCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
+        initInfo.PipelineRenderingCreateInfo.colorAttachmentCount = 1;
+        initInfo.PipelineRenderingCreateInfo.pColorAttachmentFormats = &swapchainImageFormat;
+
+        ImGui_ImplVulkan_Init(&initInfo);
+        ImGui_ImplVulkan_CreateFontsTexture();
+
+        mainDeletionQueue.PushFunction([=]() {
+            ImGui_ImplVulkan_Shutdown();
+            vkDestroyDescriptorPool(device, imGUIPool, nullptr);
         });
     }
 
