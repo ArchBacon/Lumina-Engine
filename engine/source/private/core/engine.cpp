@@ -46,6 +46,7 @@ namespace lumina
             Log::Trace("Engine::Run {}s", deltaTime);
             while (SDL_PollEvent(&e) != 0)
             {
+                renderer->Run();
                 // Close the window when user alt-f4s or clicks the X button
                 if (e.type == SDL_QUIT)
                 {
@@ -72,14 +73,7 @@ namespace lumina
                 // Throttle the speed to avoid the endless spinning
                 std::this_thread::sleep_for(std::chrono::milliseconds(100));
                 continue;
-            }
-
-            ImGui_ImplVulkan_NewFrame();
-            ImGui_ImplSDL2_NewFrame();
-            ImGui::NewFrame();
-
-            ImGui::ShowDemoWindow();
-            ImGui::Render();
+            }           
 
             renderer->Draw();
         }

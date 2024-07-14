@@ -43,6 +43,23 @@ namespace lumina
         DeletionQueue deletionQueue {};
     };
 
+    struct ComputePushConstants
+    {
+        float4 data1;
+        float4 data2;
+        float4 data3;
+        float4 data4;
+    };
+
+    struct ComputeEffect
+    {
+        const char* name;
+        VkPipeline pipeline;
+        VkPipelineLayout pipelineLayout;
+
+        ComputePushConstants data;
+    };
+
     constexpr uint8_t FRAME_OVERLAP = 2;
     
     class VulkanRenderer
@@ -85,6 +102,9 @@ namespace lumina
 
         VkPipeline gradientPipeline {};
         VkPipelineLayout gradientPipelineLayout {};
+
+        std::vector<ComputeEffect> backgroundEffects;
+        int currentBackgroundEffect {0};
         
         //Draw Resources
         AllocatedImage drawImage;
