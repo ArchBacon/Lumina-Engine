@@ -109,8 +109,8 @@ namespace lumina
             ComputeEffect& effect = backgroundEffects[currentBackgroundEffect];
             ImGui::Text("Effect: %s", effect.name);
             
-            ImGui::ColorEdit4("data1", reinterpret_cast<float*>(&effect.data.data1));
-            ImGui::ColorEdit4("data2", reinterpret_cast<float*>(&effect.data.data2));
+            ImGui::ColorEdit4("Top Color", reinterpret_cast<float*>(&effect.data.data1));
+            ImGui::ColorEdit4("Bottom Color", reinterpret_cast<float*>(&effect.data.data2));
         }
         ImGui::End();
 
@@ -143,7 +143,11 @@ namespace lumina
 
         DrawBackground(command);
 
-        vkutil::TransitionImage(command, drawImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+        vkutil::TransitionImage(command, drawImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+
+        DrawGeometry(command);
+
+        vkutil::TransitionImage(command, drawImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
         vkutil::TransitionImage(command, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
         vkutil::CopyImageToImage(command, drawImage.image, swapchainImages[swapchainImageIndex], drawExtent, swapchainExtent);
@@ -191,6 +195,34 @@ namespace lumina
         vkCmdPushConstants(command, gradientPipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(ComputePushConstants), &effect.data);
                 
         vkCmdDispatch(command, drawExtent.width / 16, drawExtent.height / 16, 1);
+    }
+    void VulkanRenderer::DrawGeometry(VkCommandBuffer command)
+    {
+        VkRenderingAttachmentInfo colorAttachment = vkinit::AttachmentInfo(drawImage.imageView, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+        VkRenderingInfo renderInfo = vkinit::RenderingInfo(drawExtent, &colorAttachment, nullptr);
+        vkCmdBeginRendering(command, &renderInfo);
+
+        vkCmdBindPipeline(command, VK_PIPELINE_BIND_POINT_GRAPHICS, trianglePipeline);
+
+        VkViewport viewport {};
+        viewport.x = 0;
+        viewport.y = 0;
+        viewport.width = drawExtent.width;
+        viewport.height = drawExtent.height;
+        viewport.minDepth = 0.0f;
+        viewport.maxDepth = 1.0f;
+
+        vkCmdSetViewport(command, 0, 1, &viewport);
+
+        VkRect2D scissor {};
+        scissor.offset = {0, 0};
+        scissor.extent = drawExtent;
+
+        vkCmdSetScissor(command, 0, 1, &scissor);
+
+        vkCmdDraw(command, 3, 1, 0, 0);
+
+        vkCmdEndRendering(command);
     }
     void VulkanRenderer::DrawImGui(VkCommandBuffer command, VkImageView targetImageView)
     {
@@ -328,6 +360,7 @@ namespace lumina
     void VulkanRenderer::InitPipelines()
     {
         InitBackgroundPipelines();
+        InitTrainglePipeline();
     }
     void VulkanRenderer::InitBackgroundPipelines()
     {
@@ -386,6 +419,45 @@ namespace lumina
             {
                 vkDestroyPipeline(device, effect.pipeline, nullptr);
             }
+        });
+    }
+    void VulkanRenderer::InitTrainglePipeline()
+    {
+        VkShaderModule triangleVertexShader;
+        if(!vkutil::LoadShaderModule("assets/shaders/colored_triangle.vert.spv", device, &triangleVertexShader))
+        {
+            Log::Error("Error when building Triangle Vertex Shader\n");
+        }
+        VkShaderModule triangleFragmentShader;
+        if(!vkutil::LoadShaderModule("assets/shaders/colored_triangle.frag.spv", device, &triangleFragmentShader))
+        {
+            Log::Error("Error when building Triangle Fragment Shader\n");
+        }
+
+        VkPipelineLayoutCreateInfo pipelineLayoutInfo = vkinit::PipelineLayoutCreateInfo();
+        VK_CHECK(vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &trianglePipelineLayout));
+
+        PipelineBuilder pipelineBuilder {};
+        pipelineBuilder.pipelineLayout = trianglePipelineLayout;
+        pipelineBuilder.SetShaders(triangleVertexShader, triangleFragmentShader);
+        pipelineBuilder.SetInputTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+        pipelineBuilder.SetPolygonMode(VK_POLYGON_MODE_FILL);
+        pipelineBuilder.SetCullMode(VK_CULL_MODE_NONE, VK_FRONT_FACE_COUNTER_CLOCKWISE);
+        pipelineBuilder.SetMultisamplingNone();
+        pipelineBuilder.DisableBlending();
+        pipelineBuilder.DisableDepthTest();
+
+        pipelineBuilder.SetColorAttachmentFormat(drawImage.imageFormat);
+        pipelineBuilder.SetDepthFormat(VK_FORMAT_UNDEFINED);
+
+        trianglePipeline = pipelineBuilder.BuildPipeline(device);
+
+        vkDestroyShaderModule(device, triangleVertexShader, nullptr);
+        vkDestroyShaderModule(device, triangleFragmentShader, nullptr);
+
+        mainDeletionQueue.PushFunction([&]() {
+            vkDestroyPipelineLayout(device, trianglePipelineLayout, nullptr);
+            vkDestroyPipeline(device, trianglePipeline, nullptr);
         });
     }
     void VulkanRenderer::InitImGUI()

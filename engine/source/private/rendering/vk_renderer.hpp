@@ -102,7 +102,9 @@ namespace lumina
 
         VkPipeline gradientPipeline {};
         VkPipelineLayout gradientPipelineLayout {};
-
+        VkPipeline trianglePipeline {};
+        VkPipelineLayout trianglePipelineLayout {};
+        
         std::vector<ComputeEffect> backgroundEffects;
         int currentBackgroundEffect {0};
         
@@ -130,9 +132,11 @@ namespace lumina
         void InitDescriptors();
         void InitPipelines();
         void InitBackgroundPipelines();
+        void InitTrainglePipeline();
         void InitImGUI();
 
-        void DrawBackground(VkCommandBuffer command); //WIP
+        void DrawBackground(VkCommandBuffer command);
+        void DrawGeometry(VkCommandBuffer command);
         void DrawImGui(VkCommandBuffer command, VkImageView targetImageView);
 
         void CreateSwapchain(uint32_t width, uint32_t height);
