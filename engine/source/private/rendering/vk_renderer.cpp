@@ -7,9 +7,9 @@
 #include <SDL/SDL.h>
 #include <SDL/SDL_vulkan.h>
 
-#include "imgui/imgui.h"
-#include "imgui/imgui_impl_sdl2.h"
-#include "imgui/imgui_impl_vulkan.h"
+#include "imgui/include/imgui.h"
+#include "imgui/include/imgui_impl_sdl2.h"
+#include "imgui/include/imgui_impl_vulkan.h"
 
 #define VMA_IMPLEMENTATION
 #include "vk_pipelines.hpp"

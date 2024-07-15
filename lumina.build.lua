@@ -23,6 +23,8 @@ project "Engine"
         -- I don't want this included in the engine since it is an external file
         -- Consider generating another project to include in this solution
         "%{prj.name}/thirdparty/vkbootstrap/VkBootstrap.cpp",
+        "%{prj.name}/thirdparty/imgui/include/**.h",
+        "%{prj.name}/thirdparty/imgui/src/**.cpp",
     }
 
     includedirs {

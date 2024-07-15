@@ -6,9 +6,9 @@
 
 #include <chrono>
 
-#include "imgui/imgui.h"
-#include "imgui/imgui_impl_sdl2.h"
-#include "imgui/imgui_impl_vulkan.h"
+#include <imgui/include/imgui.h>
+#include "imgui/include/imgui_impl_sdl2.h"
+#include "imgui/include/imgui_impl_vulkan.h"
 #include <SDL/SDL.h>
 
 lumina::Engine gEngine;
