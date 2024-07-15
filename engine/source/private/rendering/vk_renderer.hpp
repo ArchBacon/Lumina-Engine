@@ -104,6 +104,11 @@ namespace lumina
         VkPipelineLayout gradientPipelineLayout {};
         VkPipeline trianglePipeline {};
         VkPipelineLayout trianglePipelineLayout {};
+
+        VkPipeline meshPipeline {};
+        VkPipelineLayout meshPipelineLayout {};
+
+        GPUMeshBuffers rectangle{};        
         
         std::vector<ComputeEffect> backgroundEffects;
         int currentBackgroundEffect {0};
@@ -124,6 +129,11 @@ namespace lumina
 
         void ImmediateSubmit(std::function<void(VkCommandBuffer cmd)>&& function);
 
+        VkFence immediateFence {};
+        VkCommandBuffer immediateCommandBuffer {};
+        VkCommandPool immediateCommandPool {};
+        
+
     private:
         void InitVulkan();
         void InitSwapchain();
@@ -132,15 +142,23 @@ namespace lumina
         void InitDescriptors();
         void InitPipelines();
         void InitBackgroundPipelines();
-        void InitTrainglePipeline();
+        void InitTrianglePipeline();
+        void InitMeshPipeline();
         void InitImGUI();
 
+        void InitDefaultData();
+        
         void DrawBackground(VkCommandBuffer command);
         void DrawGeometry(VkCommandBuffer command);
         void DrawImGui(VkCommandBuffer command, VkImageView targetImageView);
 
         void CreateSwapchain(uint32_t width, uint32_t height);
         void DestroySwapchain();
+
+        AllocatedBuffer CreateBuffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage);
+        void DestroyBuffer(const AllocatedBuffer& buffer);
+
+        GPUMeshBuffers UploadMesh(tcb::span<uint32_t> indices, tcb::span<Vertex> vertices);
 
         FrameData& GetCurrentFrame()
         {
