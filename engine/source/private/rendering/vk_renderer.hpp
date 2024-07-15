@@ -128,7 +128,8 @@ namespace lumina
         void Shutdown();
 
         void ImmediateSubmit(std::function<void(VkCommandBuffer cmd)>&& function);
-
+        GPUMeshBuffers UploadMesh(tcb::span<uint32_t> indices, tcb::span<Vertex> vertices);
+        
         VkFence immediateFence {};
         VkCommandBuffer immediateCommandBuffer {};
         VkCommandPool immediateCommandPool {};
@@ -157,8 +158,6 @@ namespace lumina
 
         AllocatedBuffer CreateBuffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage);
         void DestroyBuffer(const AllocatedBuffer& buffer);
-
-        GPUMeshBuffers UploadMesh(tcb::span<uint32_t> indices, tcb::span<Vertex> vertices);
 
         FrameData& GetCurrentFrame()
         {
