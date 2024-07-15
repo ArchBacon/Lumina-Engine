@@ -37,6 +37,7 @@ project "Engine"
     libdirs {
         "$(VULKAN_SDK)/Lib/",
         "%{prj.name}/thirdparty/SDL/lib",
+        "%{prj.name}/thirdparty/fastgltf/lib",
     }
 
     links {
@@ -50,6 +51,7 @@ project "Engine"
 
         links {
             "SDL2d.lib",
+            "fastgltf_debug.lib",
         }
 
     filter "configurations:Release"
@@ -59,4 +61,5 @@ project "Engine"
 
         links {
             "SDL2.lib",
+            "fastgltf_release.lib",
         }
