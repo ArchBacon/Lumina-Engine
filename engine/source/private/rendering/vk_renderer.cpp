@@ -14,6 +14,8 @@
 #define VMA_IMPLEMENTATION
 #include "vk_pipelines.hpp"
 
+#include <glm/ext/matrix_clip_space.hpp>
+#include <glm/ext/matrix_transform.hpp>
 #include <vma/vk_mem_alloc.h>
 
 constexpr bool USE_VALIDATION_LAYERS = true;
@@ -145,6 +147,7 @@ namespace lumina
         DrawBackground(command);
 
         vkutil::TransitionImage(command, drawImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+        vkutil::TransitionImage(command, depthImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
 
         DrawGeometry(command);
 
@@ -200,7 +203,9 @@ namespace lumina
     void VulkanRenderer::DrawGeometry(VkCommandBuffer command)
     {
         VkRenderingAttachmentInfo colorAttachment = vkinit::AttachmentInfo(drawImage.imageView, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-        VkRenderingInfo renderInfo = vkinit::RenderingInfo(drawExtent, &colorAttachment, nullptr);
+        VkRenderingAttachmentInfo depthAttachment = vkinit::DepthAttachmentInfo(depthImage.imageView, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);        
+        VkRenderingInfo renderInfo = vkinit::RenderingInfo(drawExtent, &colorAttachment, &depthAttachment);
+        
         vkCmdBeginRendering(command, &renderInfo);
 
         vkCmdBindPipeline(command, VK_PIPELINE_BIND_POINT_GRAPHICS, trianglePipeline);
@@ -232,7 +237,22 @@ namespace lumina
         vkCmdPushConstants(command, meshPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(GPUDrawPushConstants), &pushConstants);
         vkCmdBindIndexBuffer(command, rectangle.indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
 
-        vkCmdDrawIndexed(command, 6, 1, 0, 0, 0);       
+        vkCmdDrawIndexed(command, 6, 1, 0, 0, 0);
+
+    
+        glm::mat4 view = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -5.0f));
+        glm::mat4 projection = glm::perspective(glm::radians(70.0f), static_cast<float>(drawExtent.width) / static_cast<float>(drawExtent.height), 1000.0f, 0.1f);
+
+        projection[1][1] *= -1;
+
+        pushConstants.worldMatrix = projection * view;
+
+        pushConstants.vertexBufferDeviceAddress = testMeshes[2]->buffers.vertexBufferDeviceAddress;
+
+        vkCmdPushConstants(command, meshPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(GPUDrawPushConstants), &pushConstants);
+        vkCmdBindIndexBuffer(command, testMeshes[2]->buffers.indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
+
+        vkCmdDrawIndexed(command, testMeshes[2]->surfaces[0].indexCount, 1, testMeshes[2]->surfaces[0].startIndex, 0, 0);
 
         vkCmdEndRendering(command);
     }
@@ -313,7 +333,7 @@ namespace lumina
         drawImageUsages |= VK_IMAGE_USAGE_STORAGE_BIT;
         drawImageUsages |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
-        VkImageCreateInfo rimgInfo = vkinit::ImageCreateInfo(drawImage.imageFormat, drawImageUsages, drawImageExtent);
+        VkImageCreateInfo rimgInfo = vkinit::ImageCreateInfo(drawImage.imageFormat, drawImageUsages, drawImage.imageExtent);
 
         VmaAllocationCreateInfo rimgAllocationInfo {};
         rimgAllocationInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
@@ -325,9 +345,25 @@ namespace lumina
 
         VK_CHECK(vkCreateImageView(device, &viewInfo, nullptr, &drawImage.imageView));
 
+        depthImage.imageFormat = VK_FORMAT_D32_SFLOAT;
+        depthImage.imageExtent = drawImageExtent;
+        VkImageUsageFlags depthImageUsages{};
+        depthImageUsages |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+
+        VkImageCreateInfo dimgInfo = vkinit::ImageCreateInfo(depthImage.imageFormat, depthImageUsages, depthImage.imageExtent);
+
+        vmaCreateImage(allocator, &dimgInfo, &rimgAllocationInfo, &depthImage.image, &depthImage.allocation, nullptr);
+
+        VkImageViewCreateInfo dviewInfo = vkinit::ImageviewCreateInfo(depthImage.imageFormat, depthImage.image, VK_IMAGE_ASPECT_DEPTH_BIT);
+
+        VK_CHECK(vkCreateImageView(device, &dviewInfo, nullptr, &depthImage.imageView));
+
         mainDeletionQueue.PushFunction([&]() {
             vkDestroyImageView(device, drawImage.imageView, nullptr);
             vmaDestroyImage(allocator, drawImage.image, drawImage.allocation);
+
+            vkDestroyImageView(device, depthImage.imageView, nullptr);
+            vmaDestroyImage(allocator, depthImage.image, depthImage.allocation);
         });
     }
 
@@ -495,7 +531,7 @@ namespace lumina
         pipelineBuilder.DisableDepthTest();
 
         pipelineBuilder.SetColorAttachmentFormat(drawImage.imageFormat);
-        pipelineBuilder.SetDepthFormat(VK_FORMAT_UNDEFINED);
+        pipelineBuilder.SetDepthFormat(depthImage.imageFormat);
 
         trianglePipeline = pipelineBuilder.BuildPipeline(device);
 
@@ -539,10 +575,11 @@ namespace lumina
         pipelineBuilder.SetCullMode(VK_CULL_MODE_NONE, VK_FRONT_FACE_COUNTER_CLOCKWISE);
         pipelineBuilder.SetMultisamplingNone();
         pipelineBuilder.DisableBlending();
-        pipelineBuilder.DisableDepthTest();
+        //pipelineBuilder.DisableDepthTest();
+        pipelineBuilder.EnableDepthTest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
 
         pipelineBuilder.SetColorAttachmentFormat(drawImage.imageFormat);
-        pipelineBuilder.SetDepthFormat(VK_FORMAT_UNDEFINED);
+        pipelineBuilder.SetDepthFormat(depthImage.imageFormat);
 
         meshPipeline = pipelineBuilder.BuildPipeline(device);
 
@@ -627,9 +664,17 @@ namespace lumina
 
         rectangle = UploadMesh(rectangleIndices, rectangleVertices);
 
+        testMeshes = LoadGLTFMeshes(this, "assets/models/basicmesh.glb").value();
+
         mainDeletionQueue.PushFunction([&]() {
             DestroyBuffer(rectangle.indexBuffer);
             DestroyBuffer(rectangle.vertexBuffer);
+
+            for (auto& mesh : testMeshes)
+            {
+                DestroyBuffer(mesh->buffers.indexBuffer);
+                DestroyBuffer(mesh->buffers.vertexBuffer);
+            }
         });
     }
 

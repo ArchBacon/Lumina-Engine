@@ -1,5 +1,6 @@
 ﻿#pragma once
 #include "vk_descriptors.hpp"
+#include "vk_loader.hpp"
 #include "core/types.hpp"
 #include <memory>
 #include <vkbootstrap/VkBootstrap.h>
@@ -109,12 +110,15 @@ namespace lumina
         VkPipelineLayout meshPipelineLayout {};
 
         GPUMeshBuffers rectangle{};        
+        std::vector<std::shared_ptr<MeshAsset>> testMeshes;
         
         std::vector<ComputeEffect> backgroundEffects;
         int currentBackgroundEffect {0};
         
         //Draw Resources
         AllocatedImage drawImage;
+        AllocatedImage depthImage;
+        
         VkExtent2D drawExtent;
         
         VkExtent2D windowExtent {1080, 720};

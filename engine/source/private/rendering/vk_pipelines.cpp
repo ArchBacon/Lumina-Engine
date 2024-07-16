@@ -160,4 +160,16 @@ namespace lumina
         depthStencilState.minDepthBounds = 0.0f;
         depthStencilState.maxDepthBounds = 1.0f;
     }
+    void PipelineBuilder::EnableDepthTest(bool depthWriteEnable, VkCompareOp compareOp)
+    {
+        depthStencilState.depthTestEnable = VK_TRUE;
+        depthStencilState.depthWriteEnable = depthWriteEnable;
+        depthStencilState.depthCompareOp = compareOp;
+        depthStencilState.depthBoundsTestEnable = VK_FALSE;
+        depthStencilState.stencilTestEnable = VK_FALSE;
+        depthStencilState.front = {};
+        depthStencilState.back = {};
+        depthStencilState.minDepthBounds = 0.0f;
+        depthStencilState.maxDepthBounds = 1.0f;
+    }
 }

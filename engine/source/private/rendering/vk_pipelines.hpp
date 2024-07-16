@@ -37,6 +37,7 @@ namespace lumina
         void SetColorAttachmentFormat(VkFormat format);
         void SetDepthFormat(VkFormat format);
         void DisableDepthTest();
+        void EnableDepthTest(bool depthWriteEnable, VkCompareOp compareOp);
         
         
     };

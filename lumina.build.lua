@@ -45,7 +45,7 @@ project "Engine"
     }
 
     filter "configurations:Debug"
-        defines { "_DEBUG" }
+        defines { "_DEBUG", "GLM_FORCE_DEPTH_ZERO_TO_ONE" }
         runtime "Debug"
         symbols "On"
 
@@ -55,7 +55,7 @@ project "Engine"
         }
 
     filter "configurations:Release"
-        defines { "_RELEASE" }
+        defines { "_RELEASE", "GLM_FORCE_DEPTH_ZERO_TO_ONE" }
         runtime "Release"
         optimize "On"
 
