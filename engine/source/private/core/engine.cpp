@@ -67,6 +67,11 @@ namespace lumina
                 ImGui_ImplSDL2_ProcessEvent(&e);
             }
 
+            if (renderer->resized)
+            {
+                renderer->ResizeSwapchain();
+            }
+
             // Do not draw if window is minimized
             if (stopRendering)
             {

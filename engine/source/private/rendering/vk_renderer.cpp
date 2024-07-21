@@ -36,7 +36,7 @@ namespace lumina
     {
         SDL_Init(SDL_INIT_VIDEO);
 
-        const SDL_WindowFlags windowFlags = SDL_WINDOW_VULKAN;
+        auto windowFlags = static_cast<SDL_WindowFlags>(SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);
         window = SDL_CreateWindow("Lumina Engine", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, windowExtent.width, windowExtent.height, windowFlags);
 
         InitVulkan();
@@ -127,8 +127,13 @@ namespace lumina
         GetCurrentFrame().deletionQueue.Flush();
         
         uint32_t swapchainImageIndex {};
-        VK_CHECK(vkAcquireNextImageKHR(device, swapchain, singleSecond, GetCurrentFrame().swapchainSemaphore, nullptr, &swapchainImageIndex));
-
+        VkResult result = vkAcquireNextImageKHR(device, swapchain, singleSecond, GetCurrentFrame().swapchainSemaphore, nullptr, &swapchainImageIndex);
+        if (result == VK_ERROR_OUT_OF_DATE_KHR)
+        {
+            resized = true;
+            return;
+        }
+        
         VK_CHECK(vkResetFences(device, 1, &GetCurrentFrame().renderFence));
 
         const VkCommandBuffer command = GetCurrentFrame().commandBuffer;
@@ -184,7 +189,11 @@ namespace lumina
 
         presentInfo.pImageIndices = &swapchainImageIndex;
 
-        VK_CHECK(vkQueuePresentKHR(graphicsQueue, &presentInfo));
+        VkResult presentResult = vkQueuePresentKHR(graphicsQueue, &presentInfo);
+        if (presentResult == VK_ERROR_OUT_OF_DATE_KHR)
+        {
+            resized = true;
+        }
 
         ++frameNumber;
     }
@@ -693,6 +702,21 @@ namespace lumina
         swapchain = vkbSwapchain.swapchain;
         swapchainImages = vkbSwapchain.get_images().value();
         swapchainImageViews = vkbSwapchain.get_image_views().value();
+    }
+    void VulkanRenderer::ResizeSwapchain()
+    {
+        vkDeviceWaitIdle(device);
+
+        DestroySwapchain();
+
+        int width, height;
+        SDL_GetWindowSize(window, &width, &height);
+        windowExtent.width = width;
+        windowExtent.height = height;
+        
+        CreateSwapchain(windowExtent.width, windowExtent.height);
+
+        resized = false;
     }
 
     void VulkanRenderer::DestroySwapchain()

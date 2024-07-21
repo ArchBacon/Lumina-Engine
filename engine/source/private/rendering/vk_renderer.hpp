@@ -125,6 +125,7 @@ namespace lumina
         SDL_Window* window {nullptr};
         bool running {true};
         bool stopRendering {false};
+        bool resized {false};
 
         void Initialize();
         void Run();
@@ -158,6 +159,7 @@ namespace lumina
         void DrawImGui(VkCommandBuffer command, VkImageView targetImageView);
 
         void CreateSwapchain(uint32_t width, uint32_t height);
+        void ResizeSwapchain();
         void DestroySwapchain();
 
         AllocatedBuffer CreateBuffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage);
