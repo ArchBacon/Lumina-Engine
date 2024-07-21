@@ -574,7 +574,8 @@ namespace lumina
         pipelineBuilder.SetPolygonMode(VK_POLYGON_MODE_FILL);
         pipelineBuilder.SetCullMode(VK_CULL_MODE_NONE, VK_FRONT_FACE_COUNTER_CLOCKWISE);
         pipelineBuilder.SetMultisamplingNone();
-        pipelineBuilder.DisableBlending();
+        //pipelineBuilder.DisableBlending();
+        pipelineBuilder.EnableBlendingAdditive();
         //pipelineBuilder.DisableDepthTest();
         pipelineBuilder.EnableDepthTest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
 

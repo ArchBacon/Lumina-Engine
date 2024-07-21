@@ -34,6 +34,8 @@ namespace lumina
         void SetCullMode(VkCullModeFlags mode, VkFrontFace frontFace);
         void SetMultisamplingNone();
         void DisableBlending();
+        void EnableBlendingAdditive();
+        void EnableBlendingAlphaBlend();
         void SetColorAttachmentFormat(VkFormat format);
         void SetDepthFormat(VkFormat format);
         void DisableDepthTest();
