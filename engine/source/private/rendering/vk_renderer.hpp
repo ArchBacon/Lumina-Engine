@@ -42,6 +42,7 @@ namespace lumina
         VkSemaphore renderSemaphore {};
         VkFence renderFence {};
         DeletionQueue deletionQueue {};
+        std::unique_ptr<DescriptorAllocatorGrowable> frameDescriptors{};
     };
 
     struct ComputePushConstants
@@ -50,6 +51,16 @@ namespace lumina
         float4 data2;
         float4 data3;
         float4 data4;
+    };
+
+    struct GPUSceneData
+    {
+        glm::mat4 view;
+        glm::mat4 proj;
+        glm::mat4 viewProj;
+        float4 ambientColor;
+        float4 sunlightDirection;
+        float4 sunlightColor;
     };
 
     struct ComputeEffect
@@ -100,6 +111,7 @@ namespace lumina
         DescriptorAllocator globalDescriptorAllocator {};
         VkDescriptorSet drawImageDescriptor {};
         VkDescriptorSetLayout drawImageDescriptorLayout {};
+        VkDescriptorSetLayout gpuSceneDataDescriptorLayout {};
 
         VkPipeline gradientPipeline {};
         VkPipelineLayout gradientPipelineLayout {};
@@ -138,6 +150,9 @@ namespace lumina
         VkFence immediateFence {};
         VkCommandBuffer immediateCommandBuffer {};
         VkCommandPool immediateCommandPool {};
+
+        GPUSceneData sceneData{};
+        
         
 
     private:

@@ -125,6 +125,7 @@ namespace lumina
         VK_CHECK(vkWaitForFences(device, 1, &GetCurrentFrame().renderFence, true, singleSecond));
         
         GetCurrentFrame().deletionQueue.Flush();
+        GetCurrentFrame().frameDescriptors->ClearPools(device);
         
         uint32_t swapchainImageIndex {};
         VkResult result = vkAcquireNextImageKHR(device, swapchain, singleSecond, GetCurrentFrame().swapchainSemaphore, nullptr, &swapchainImageIndex);
@@ -263,6 +264,22 @@ namespace lumina
 
         vkCmdDrawIndexed(command, testMeshes[2]->surfaces[0].indexCount, 1, testMeshes[2]->surfaces[0].startIndex, 0, 0);
 
+        AllocatedBuffer gpuSceneDataBuffer = CreateBuffer(sizeof(GPUSceneData), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+
+        GetCurrentFrame().deletionQueue.PushFunction([gpuSceneDataBuffer, this]() {
+            DestroyBuffer(gpuSceneDataBuffer);
+        });
+
+        auto* sceneDataUniform = static_cast<GPUSceneData*>(gpuSceneDataBuffer.allocation->GetMappedData());
+        *sceneDataUniform = sceneData;
+
+        VkDescriptorSet globalDescriptor = GetCurrentFrame().frameDescriptors->Allocate(device, gpuSceneDataDescriptorLayout);
+
+        DescriptorWriter writer{};
+        writer.WriteBuffer(0, gpuSceneDataBuffer.buffer, sizeof(GPUSceneData), 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+        writer.UpdateSet(device, globalDescriptor);
+
+        
         vkCmdEndRendering(command);
     }
     void VulkanRenderer::DrawImGui(VkCommandBuffer command, VkImageView targetImageView)
@@ -415,7 +432,10 @@ namespace lumina
     void VulkanRenderer::InitDescriptors()
     {
         std::vector<DescriptorAllocator::PoolSizeRatio> sizes =
-            {{ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1}};
+            {
+            { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1},
+            {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1 }
+            };
 
         globalDescriptorAllocator.InitializePool(device, 10, sizes);
 
@@ -424,18 +444,43 @@ namespace lumina
             builder.AddBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
             drawImageDescriptorLayout = builder.Build(device, VK_SHADER_STAGE_COMPUTE_BIT);
         }
-
+        {
+            DescriptorLayoutBuilder builder;
+            builder.AddBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+            gpuSceneDataDescriptorLayout = builder.Build(device, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
+        }
+        
         drawImageDescriptor = globalDescriptorAllocator.Allocate(device, drawImageDescriptorLayout);
 
         DescriptorWriter writer{};
         writer.WriteImage(0, drawImage.imageView, VK_NULL_HANDLE, VK_IMAGE_LAYOUT_GENERAL, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
 
-        writer.UpdateSet(device, drawImageDescriptor);
+        writer.UpdateSet(device, drawImageDescriptor);       
 
         mainDeletionQueue.PushFunction([&]() {
             globalDescriptorAllocator.DestroyPool(device);
             vkDestroyDescriptorSetLayout(device, drawImageDescriptorLayout, nullptr);
+            vkDestroyDescriptorSetLayout(device, gpuSceneDataDescriptorLayout, nullptr);
         });
+
+        for (int i = 0; i < FRAME_OVERLAP; i++)
+        {
+            std::vector<DescriptorAllocatorGrowable::PoolSizeRatio> frameSizes =
+                {
+                    { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 3 },
+                    { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 3 },
+                    { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 3 },
+                    {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4},
+                };
+
+            frames[i].frameDescriptors = std::make_unique<DescriptorAllocatorGrowable>();
+            frames[i].frameDescriptors->InitializePool(device, 1000, frameSizes);
+
+            mainDeletionQueue.PushFunction([&, i]() {
+                frames[i].frameDescriptors->DestroyPool(device);
+            });
+            
+        }
     }
     void VulkanRenderer::InitPipelines()
     {
