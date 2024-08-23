@@ -64,6 +64,7 @@ namespace lumina
                         stopRendering = false;
                     }
                 }
+                renderer->mainCamera.ProcessSDLEvent(e);
                 ImGui_ImplSDL2_ProcessEvent(&e);
             }
 

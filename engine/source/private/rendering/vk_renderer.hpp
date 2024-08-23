@@ -8,6 +8,7 @@
 #include <functional>
 #include <vma/vk_mem_alloc.h>
 #include "vk_types.hpp"
+#include "camera.hpp"
 
 struct SDL_Window;
 
@@ -207,7 +208,9 @@ namespace lumina
         GLTFMetallicRoughness metallicRoughnessMaterial;
 
         DrawContext mainDrawContext;
-        std::unordered_map<std::string, std::shared_ptr<Node>> loadedNodes;        
+        std::unordered_map<std::string, std::shared_ptr<Node>> loadedNodes;
+
+        Camera mainCamera;
 
     private:
         void InitVulkan();

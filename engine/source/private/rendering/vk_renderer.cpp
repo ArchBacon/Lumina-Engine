@@ -729,6 +729,11 @@ namespace lumina
     }
     void VulkanRenderer::InitDefaultData()
     {
+        mainCamera.velocity = float3{0.0f};
+        mainCamera.position = float3{0.0f, 0.0f, 5.0f};
+        mainCamera.pitch = 0.0f;
+        mainCamera.yaw = 0.0f;        
+        
         std::array<Vertex, 4> rectangleVertices;
 
         rectangleVertices[0].position = {0.5f, -0.5f, 0.0f};
@@ -1018,7 +1023,8 @@ namespace lumina
 
         loadedNodes["Suzanne"]->Draw(glm::mat4{1.0f}, mainDrawContext);
 
-        sceneData.view = glm::translate(glm::mat4(1.0f), float3{0.0f, 0.0f, -5.0f});
+        mainCamera.Update();
+        sceneData.view = mainCamera.GetViewMatrix();
         sceneData.proj = glm::perspective(glm::radians(70.0f), static_cast<float>(windowExtent.width) / static_cast<float>(windowExtent.height), 10000.0f, 0.1f);
 
         sceneData.proj[1][1] *= -1;
