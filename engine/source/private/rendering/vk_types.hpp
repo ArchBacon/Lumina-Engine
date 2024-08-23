@@ -101,11 +101,40 @@ namespace lumina
         VkDeviceAddress vertexBufferDeviceAddress;
     };
 
-    struct DrawContext;
+    struct DrawContext
+    {
+        std::vector<RenderObject> opaqueSurfaces;
+    };
 
     class IRenderable
     {
-        virtual void Draw(const glm::mat4 topMatrix, DrawContext& context) = 0;
+        virtual void Draw(const glm::mat4& topMatrix, DrawContext& context) = 0;
+    };
+
+    struct Node : public IRenderable
+    {
+        std::weak_ptr<Node> parent;
+        std::vector<std::shared_ptr<Node>> children;
+
+        glm::mat4 localTransform;
+        glm::mat4 worldTransform;
+
+        void RefreshTransforms(const glm::mat4& parentMatrix)
+        {
+            worldTransform = parentMatrix * localTransform;
+            for (const auto& child : children)
+            {
+                child->RefreshTransforms(worldTransform);
+            }
+        }
+
+        void Draw(const glm::mat4& topMatrix, DrawContext& context) override
+        {
+            for (auto& child : children)
+            {
+                child->Draw(topMatrix, context);
+            }
+        }
     };
     
 }

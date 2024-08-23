@@ -6,10 +6,16 @@
 
 namespace lumina
 {
+    struct GLTFMaterial
+    {
+        MaterialInstance data;
+    };
+    
     struct GeometrySurface
     {
         uint32_t startIndex;
         uint32_t indexCount;
+        std::shared_ptr<GLTFMaterial> material;
     };
 
     struct MeshAsset

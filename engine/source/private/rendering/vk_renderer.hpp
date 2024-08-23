@@ -104,6 +104,13 @@ namespace lumina
         MaterialInstance WriteMaterial(VkDevice device, MaterialPass pass, const MaterialResources& resources, DescriptorAllocatorGrowable& descriptorAllocator);
     };
 
+    struct MeshNode : public Node
+    {
+        std::shared_ptr<MeshAsset> mesh;
+
+        void Draw(const glm::mat4& topMatrix, DrawContext& context) override;
+    };
+
     constexpr uint8_t FRAME_OVERLAP = 2;
     
     class VulkanRenderer
@@ -188,6 +195,7 @@ namespace lumina
 
         void ImmediateSubmit(std::function<void(VkCommandBuffer cmd)>&& function);
         GPUMeshBuffers UploadMesh(tcb::span<uint32_t> indices, tcb::span<Vertex> vertices);
+        void UpdateScene();
         
         VkFence immediateFence {};
         VkCommandBuffer immediateCommandBuffer {};
@@ -195,8 +203,11 @@ namespace lumina
 
         GPUSceneData sceneData{};
 
-        MaterialInstance defaultData;
-        GLTFMetallicRoughness metallicRoughnessMaterial;       
+        GLTFMaterial defaultData;
+        GLTFMetallicRoughness metallicRoughnessMaterial;
+
+        DrawContext mainDrawContext;
+        std::unordered_map<std::string, std::shared_ptr<Node>> loadedNodes;        
 
     private:
         void InitVulkan();

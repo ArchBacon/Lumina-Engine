@@ -119,6 +119,8 @@ namespace lumina
 
         //ImGui::ShowDemoWindow();
         ImGui::Render();
+
+        UpdateScene();
         
         constexpr uint32_t singleSecond = 1000000000;
 
@@ -286,6 +288,21 @@ namespace lumina
         writer.WriteBuffer(0, gpuSceneDataBuffer.buffer, sizeof(GPUSceneData), 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
         writer.UpdateSet(device, globalDescriptor);
 
+
+        for (const RenderObject& draw : mainDrawContext.opaqueSurfaces)
+        {
+            vkCmdBindPipeline(command, VK_PIPELINE_BIND_POINT_GRAPHICS, draw.material->pipeline->pipeline);
+            vkCmdBindDescriptorSets(command, VK_PIPELINE_BIND_POINT_GRAPHICS, draw.material->pipeline->pipelineLayout, 0, 1, &globalDescriptor, 0, nullptr);
+            vkCmdBindDescriptorSets(command, VK_PIPELINE_BIND_POINT_GRAPHICS, draw.material->pipeline->pipelineLayout, 1, 1, &draw.material->materialSet, 0, nullptr);
+
+            vkCmdBindIndexBuffer(command, draw.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+
+            GPUDrawPushConstants pushConstants;
+            pushConstants.vertexBufferDeviceAddress = draw.vertexBufferDeviceAddress;
+            pushConstants.worldMatrix = draw.transform;
+            vkCmdPushConstants(command, draw.material->pipeline->pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(GPUDrawPushConstants), &pushConstants);
+            vkCmdDrawIndexed(command, draw.indexCount, 1, draw.firstIndex, 0, 0);
+        }
         
         vkCmdEndRendering(command);
     }
@@ -801,7 +818,23 @@ namespace lumina
         materialResources.dataBuffer = materialConstants.buffer;
         materialResources.dataBufferOffset = 0;
 
-        defaultData = metallicRoughnessMaterial.WriteMaterial(device, MaterialPass::MainColor, materialResources, globalDescriptorAllocator);
+        defaultData.data = metallicRoughnessMaterial.WriteMaterial(device, MaterialPass::MainColor, materialResources, globalDescriptorAllocator);
+
+        for (auto& mesh : testMeshes)
+        {
+            auto newNode = std::make_shared<MeshNode>();
+            newNode->mesh = mesh;
+
+            newNode->localTransform = glm::mat4(1.0f);
+            newNode->worldTransform = glm::mat4(1.0f);
+
+            for (auto& s: newNode->mesh->surfaces)
+            {
+                s.material = std::make_shared<GLTFMaterial>(defaultData);
+            }
+
+            loadedNodes[mesh->name] = std::move(newNode);
+        }
         
     }
 
@@ -979,6 +1012,32 @@ namespace lumina
 
         return newSurface;        
     }
+    void VulkanRenderer::UpdateScene()
+    {
+        mainDrawContext.opaqueSurfaces.clear();
+
+        loadedNodes["Suzanne"]->Draw(glm::mat4{1.0f}, mainDrawContext);
+
+        sceneData.view = glm::translate(glm::mat4(1.0f), float3{0.0f, 0.0f, -5.0f});
+        sceneData.proj = glm::perspective(glm::radians(70.0f), static_cast<float>(windowExtent.width) / static_cast<float>(windowExtent.height), 10000.0f, 0.1f);
+
+        sceneData.proj[1][1] *= -1;
+        sceneData.viewProj = sceneData.proj * sceneData.view;
+
+        sceneData.ambientColor = float4(0.1f, 0.1f, 0.1f, 1.0f);
+        sceneData.sunlightColor = float4(1.0f, 1.0f, 1.0f, 1.0f);
+        sceneData.sunlightDirection = float4(0.0f, 1.0f, 0.5f, 1.0f);
+
+        for (int x = -3; x < 3; x++)
+        {
+            glm::mat4 scale = glm::scale(glm::mat4{1.0}, float3{0.2f});
+            glm::mat4 translation = glm::translate(glm::mat4{1.0f}, float3{x, 1.0, 0.0});
+
+            loadedNodes["Cube"]->Draw(translation * scale, mainDrawContext);
+        }
+
+    }
+        
 
     void GLTFMetallicRoughness::BuildPipelines(VulkanRenderer* renderer)
     {
@@ -1074,5 +1133,24 @@ namespace lumina
         writer.UpdateSet(device, materialData.materialSet);
 
         return materialData;
+    }
+    void MeshNode::Draw(const glm::mat4& topMatrix, DrawContext& context)
+    {
+        glm::mat4 nodeMatrix = topMatrix * worldTransform;
+
+        for (auto& surface : mesh->surfaces)
+        {
+            RenderObject def;
+            def.indexCount = surface.indexCount;
+            def.firstIndex = surface.startIndex;
+            def.indexBuffer = mesh->buffers.indexBuffer.buffer;
+            def.material = &surface.material->data;
+
+            def.transform = nodeMatrix;
+            def.vertexBufferDeviceAddress = mesh->buffers.vertexBufferDeviceAddress;
+
+            context.opaqueSurfaces.push_back(def);
+        }       
+        Node::Draw(topMatrix, context);            
     }
 }
