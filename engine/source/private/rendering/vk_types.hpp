@@ -68,5 +68,44 @@ namespace lumina
         glm::mat4 worldMatrix;
         VkDeviceAddress vertexBufferDeviceAddress;
     };
+
+    enum class MaterialPass : uint8_t
+    {
+        MainColor,
+        Transparent,
+        Other
+    };
+
+    struct MaterialPipeline
+    {
+        VkPipeline pipeline;
+        VkPipelineLayout pipelineLayout;
+    };
+
+    struct MaterialInstance
+    {
+        MaterialPipeline* pipeline;
+        VkDescriptorSet materialSet;
+        MaterialPass passType;
+        
+    };
+
+    struct RenderObject
+    {
+        uint32_t indexCount;
+        uint32_t firstIndex;
+        VkBuffer indexBuffer;
+
+        MaterialInstance* material;
+        glm::mat4 transform;
+        VkDeviceAddress vertexBufferDeviceAddress;
+    };
+
+    struct DrawContext;
+
+    class IRenderable
+    {
+        virtual void Draw(const glm::mat4 topMatrix, DrawContext& context) = 0;
+    };
     
 }

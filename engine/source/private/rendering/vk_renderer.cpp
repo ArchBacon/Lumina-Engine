@@ -21,7 +21,7 @@
 constexpr bool USE_VALIDATION_LAYERS = true;
 
 namespace lumina
-{
+{    
     VulkanRenderer::VulkanRenderer()
     {
         Initialize();
@@ -317,6 +317,8 @@ namespace lumina
             frame.deletionQueue.Flush();
         }
 
+        metallicRoughnessMaterial.ClearResources(device);
+        
         mainDeletionQueue.Flush();
         
         DestroySwapchain();
@@ -438,7 +440,7 @@ namespace lumina
     }
     void VulkanRenderer::InitDescriptors()
     {
-        std::vector<DescriptorAllocator::PoolSizeRatio> sizes =
+        std::vector<DescriptorAllocatorGrowable::PoolSizeRatio> sizes =
             {
             { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1},
             {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1 }
@@ -501,6 +503,8 @@ namespace lumina
 
         InitTrianglePipeline();
         InitMeshPipeline();
+
+        metallicRoughnessMaterial.BuildPipelines(this);
     }
     void VulkanRenderer::InitBackgroundPipelines()
     {
@@ -778,6 +782,27 @@ namespace lumina
             DestroyImage(blackImage);
             DestroyImage(errorCheckerboardImage);
         });
+
+        GLTFMetallicRoughness::MaterialResources materialResources;
+        materialResources.colorImage = whiteImage;
+        materialResources.colorSampler = defaultSamplerLinear;
+        materialResources.metallicRoughnessImage = whiteImage;
+        materialResources.metallicRoughnessSampler = defaultSamplerLinear;
+
+        AllocatedBuffer materialConstants = CreateBuffer(sizeof(GLTFMetallicRoughness::MaterialConstants), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+        auto sceneUniformData = static_cast<GLTFMetallicRoughness::MaterialConstants*>(materialConstants.allocation->GetMappedData());
+        sceneUniformData->colorFactors = float4{1.0f, 1.0f, 1.0f, 1.0f};
+        sceneUniformData->metallicRoughnessFactors = float4{1.0f, 0.5f, 0.0f, 0.0f};
+
+        mainDeletionQueue.PushFunction([this, materialConstants]() {
+            DestroyBuffer(materialConstants);
+        });
+
+        materialResources.dataBuffer = materialConstants.buffer;
+        materialResources.dataBufferOffset = 0;
+
+        defaultData = metallicRoughnessMaterial.WriteMaterial(device, MaterialPass::MainColor, materialResources, globalDescriptorAllocator);
+        
     }
 
     void VulkanRenderer::CreateSwapchain(uint32_t width, uint32_t height)
@@ -953,5 +978,101 @@ namespace lumina
         DestroyBuffer(stagingBuffer);
 
         return newSurface;        
-    }    
+    }
+
+    void GLTFMetallicRoughness::BuildPipelines(VulkanRenderer* renderer)
+    {
+        VkShaderModule meshVertexShader;
+        if (!vkutil::LoadShaderModule("assets/shaders/mesh.vert.spv", renderer->device, &meshVertexShader))
+        {
+            Log::Error("Error when building Mesh Vertex Shader\n");
+        }
+        VkShaderModule meshFragmentShader;
+        if (!vkutil::LoadShaderModule("assets/shaders/mesh.frag.spv", renderer->device, &meshFragmentShader))
+        {
+            Log::Error("Error when building Mesh Fragment Shader\n");
+        }
+
+        VkPushConstantRange matrixRange{};
+        matrixRange.offset = 0;
+        matrixRange.size = sizeof(GPUDrawPushConstants);
+        matrixRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+
+        DescriptorLayoutBuilder layoutBuilder;
+        layoutBuilder.AddBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+        layoutBuilder.AddBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+        layoutBuilder.AddBinding(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+
+        materialSetLayout = layoutBuilder.Build(renderer->device, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
+
+        VkDescriptorSetLayout setLayouts[] = {renderer->gpuSceneDataDescriptorLayout, materialSetLayout};
+
+        VkPipelineLayoutCreateInfo meshLayoutInfo = vkinit::PipelineLayoutCreateInfo();
+        meshLayoutInfo.setLayoutCount = 2;
+        meshLayoutInfo.pSetLayouts = setLayouts;
+        meshLayoutInfo.pushConstantRangeCount = 1;
+        meshLayoutInfo.pPushConstantRanges = &matrixRange;
+
+        VkPipelineLayout newLayout;
+        VK_CHECK(vkCreatePipelineLayout(renderer->device, &meshLayoutInfo, nullptr, &newLayout));
+
+        opaquePipeline.pipelineLayout = newLayout;
+        transparentPipeline.pipelineLayout = newLayout;
+
+        PipelineBuilder pipelineBuilder;
+        pipelineBuilder.SetShaders(meshVertexShader, meshFragmentShader);
+        pipelineBuilder.SetInputTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+        pipelineBuilder.SetPolygonMode(VK_POLYGON_MODE_FILL);
+        pipelineBuilder.SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE);
+        pipelineBuilder.SetMultisamplingNone();
+        pipelineBuilder.DisableBlending();
+        pipelineBuilder.EnableDepthTest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
+
+        pipelineBuilder.SetColorAttachmentFormat(renderer->drawImage.imageFormat);
+        pipelineBuilder.SetDepthFormat(renderer->depthImage.imageFormat);
+
+        pipelineBuilder.pipelineLayout = newLayout;
+        opaquePipeline.pipeline = pipelineBuilder.BuildPipeline(renderer->device);
+
+        pipelineBuilder.EnableBlendingAdditive();
+        pipelineBuilder.EnableDepthTest(false, VK_COMPARE_OP_GREATER_OR_EQUAL);
+        transparentPipeline.pipeline = pipelineBuilder.BuildPipeline(renderer->device);
+
+        vkDestroyShaderModule(renderer->device, meshVertexShader, nullptr);
+        vkDestroyShaderModule(renderer->device, meshFragmentShader, nullptr);
+    }
+
+    void GLTFMetallicRoughness::ClearResources(VkDevice device)
+    {
+        vkDestroyDescriptorSetLayout(device, materialSetLayout, nullptr);
+        vkDestroyPipelineLayout(device, transparentPipeline.pipelineLayout, nullptr);        
+
+        vkDestroyPipeline(device, transparentPipeline.pipeline, nullptr);
+        vkDestroyPipeline(device, opaquePipeline.pipeline, nullptr);
+    }
+
+    MaterialInstance GLTFMetallicRoughness::WriteMaterial(VkDevice device, MaterialPass pass, const MaterialResources& resources, DescriptorAllocatorGrowable& descriptorAllocator)
+    {
+        MaterialInstance materialData;
+        materialData.passType = pass;
+        if (pass == MaterialPass::Transparent)
+        {
+            materialData.pipeline = &transparentPipeline;
+        }
+        else
+        {
+            materialData.pipeline = &opaquePipeline;
+        }
+
+        materialData.materialSet = descriptorAllocator.Allocate(device, materialSetLayout);
+
+        writer.Clear();
+        writer.WriteBuffer(0, resources.dataBuffer, sizeof(MaterialConstants), resources.dataBufferOffset, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+        writer.WriteImage(1, resources.colorImage.imageView, resources.colorSampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+        writer.WriteImage(2, resources.metallicRoughnessImage.imageView, resources.metallicRoughnessSampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+
+        writer.UpdateSet(device, materialData.materialSet);
+
+        return materialData;
+    }
 }

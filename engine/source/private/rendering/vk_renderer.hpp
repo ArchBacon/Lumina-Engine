@@ -72,6 +72,38 @@ namespace lumina
         ComputePushConstants data;
     };
 
+    struct GLTFMetallicRoughness
+    {
+        MaterialPipeline opaquePipeline;
+        MaterialPipeline transparentPipeline;
+
+        VkDescriptorSetLayout materialSetLayout;
+
+        struct MaterialConstants
+        {
+            float4 colorFactors;
+            float4 metallicRoughnessFactors;
+            float4 padding[14];
+        };
+
+        struct MaterialResources
+        {
+            AllocatedImage colorImage;
+            VkSampler colorSampler;
+            AllocatedImage metallicRoughnessImage;
+            VkSampler metallicRoughnessSampler;
+            VkBuffer dataBuffer;
+            uint32_t dataBufferOffset;
+        };
+
+        DescriptorWriter writer;
+
+        void BuildPipelines(VulkanRenderer* renderer);
+        void ClearResources(VkDevice device);
+
+        MaterialInstance WriteMaterial(VkDevice device, MaterialPass pass, const MaterialResources& resources, DescriptorAllocatorGrowable& descriptorAllocator);
+    };
+
     constexpr uint8_t FRAME_OVERLAP = 2;
     
     class VulkanRenderer
@@ -108,7 +140,7 @@ namespace lumina
         DeletionQueue mainDeletionQueue {};
 
         VmaAllocator allocator {};
-        DescriptorAllocator globalDescriptorAllocator {};
+        DescriptorAllocatorGrowable globalDescriptorAllocator {};
         VkDescriptorSet drawImageDescriptor {};
         VkDescriptorSetLayout drawImageDescriptorLayout {};
         VkDescriptorSetLayout gpuSceneDataDescriptorLayout {};
@@ -162,8 +194,9 @@ namespace lumina
         VkCommandPool immediateCommandPool {};
 
         GPUSceneData sceneData{};
-        
-        
+
+        MaterialInstance defaultData;
+        GLTFMetallicRoughness metallicRoughnessMaterial;       
 
     private:
         void InitVulkan();
