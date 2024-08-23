@@ -112,7 +112,8 @@ namespace lumina
         VkDescriptorSet drawImageDescriptor {};
         VkDescriptorSetLayout drawImageDescriptorLayout {};
         VkDescriptorSetLayout gpuSceneDataDescriptorLayout {};
-
+        VkDescriptorSetLayout singleImageDescriptorLayout {};
+        
         VkPipeline gradientPipeline {};
         VkPipelineLayout gradientPipelineLayout {};
         VkPipeline trianglePipeline {};
@@ -130,6 +131,15 @@ namespace lumina
         //Draw Resources
         AllocatedImage drawImage;
         AllocatedImage depthImage;
+
+        //Textures
+        AllocatedImage whiteImage;
+        AllocatedImage blackImage;
+        AllocatedImage greyImage;
+        AllocatedImage errorCheckerboardImage;
+
+        VkSampler defaultSamplerLinear;
+        VkSampler defaultSamplerNearest;
         
         VkExtent2D drawExtent;
         
@@ -179,6 +189,10 @@ namespace lumina
 
         AllocatedBuffer CreateBuffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage);
         void DestroyBuffer(const AllocatedBuffer& buffer);
+
+        AllocatedImage CreateImage(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false);
+        AllocatedImage CreateImage(void* data, VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false);
+        void DestroyImage(const AllocatedImage& image);
 
         FrameData& GetCurrentFrame()
         {

@@ -240,6 +240,14 @@ namespace lumina
 
         vkCmdBindPipeline(command, VK_PIPELINE_BIND_POINT_GRAPHICS, meshPipeline);
 
+        VkDescriptorSet imageSet = GetCurrentFrame().frameDescriptors->Allocate(device, singleImageDescriptorLayout);
+        {
+            DescriptorWriter writer{};
+            writer.WriteImage(0, errorCheckerboardImage.imageView, defaultSamplerNearest, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+            writer.UpdateSet(device, imageSet);
+        }
+        vkCmdBindDescriptorSets(command, VK_PIPELINE_BIND_POINT_GRAPHICS, meshPipelineLayout, 0, 1, &imageSet, 0, nullptr);
+        
         GPUDrawPushConstants pushConstants{};
         pushConstants.worldMatrix = glm::mat4(1.0f);
         pushConstants.vertexBufferDeviceAddress = rectangle.vertexBufferDeviceAddress;
@@ -248,7 +256,6 @@ namespace lumina
         vkCmdBindIndexBuffer(command, rectangle.indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
 
         vkCmdDrawIndexed(command, 6, 1, 0, 0, 0);
-
     
         glm::mat4 view = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -5.0f));
         glm::mat4 projection = glm::perspective(glm::radians(70.0f), static_cast<float>(drawExtent.width) / static_cast<float>(drawExtent.height), 1000.0f, 0.1f);
@@ -449,6 +456,11 @@ namespace lumina
             builder.AddBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
             gpuSceneDataDescriptorLayout = builder.Build(device, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
         }
+        {
+            DescriptorLayoutBuilder builder;
+            builder.AddBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+            singleImageDescriptorLayout = builder.Build(device, VK_SHADER_STAGE_FRAGMENT_BIT);
+        }
         
         drawImageDescriptor = globalDescriptorAllocator.Allocate(device, drawImageDescriptorLayout);
 
@@ -461,6 +473,7 @@ namespace lumina
             globalDescriptorAllocator.DestroyPool(device);
             vkDestroyDescriptorSetLayout(device, drawImageDescriptorLayout, nullptr);
             vkDestroyDescriptorSetLayout(device, gpuSceneDataDescriptorLayout, nullptr);
+            vkDestroyDescriptorSetLayout(device, singleImageDescriptorLayout, nullptr);
         });
 
         for (int i = 0; i < FRAME_OVERLAP; i++)
@@ -595,7 +608,7 @@ namespace lumina
             Log::Error("Error when building Mesh Vertex Shader\n");
         }
         VkShaderModule meshFragmentShader;
-        if (!vkutil::LoadShaderModule("assets/shaders/colored_triangle.frag.spv", device, &meshFragmentShader))
+        if (!vkutil::LoadShaderModule("assets/shaders/texture_image.frag.spv", device, &meshFragmentShader))
         {
             Log::Error("Error when building Mesh Fragment Shader\n");
         }
@@ -608,6 +621,8 @@ namespace lumina
         VkPipelineLayoutCreateInfo meshLayoutInfo = vkinit::PipelineLayoutCreateInfo();
         meshLayoutInfo.pushConstantRangeCount = 1;
         meshLayoutInfo.pPushConstantRanges = &bufferRange;
+        meshLayoutInfo.pSetLayouts = &singleImageDescriptorLayout;
+        meshLayoutInfo.setLayoutCount = 1;
 
         VK_CHECK(vkCreatePipelineLayout(device, &meshLayoutInfo, nullptr, &meshPipelineLayout));
 
@@ -721,6 +736,48 @@ namespace lumina
                 DestroyBuffer(mesh->buffers.vertexBuffer);
             }
         });
+
+        uint32_t white = glm::packUnorm4x8(float4(1, 1, 1, 1));
+        whiteImage = CreateImage(&white, VkExtent3D{1, 1, 1 }, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT);
+
+        uint32_t gray = glm::packUnorm4x8(float4(0.66f, 0.66f, 0.66f, 1));
+        greyImage = CreateImage(&gray, VkExtent3D{1, 1, 1 }, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT);
+
+        uint32_t black = glm::packUnorm4x8(float4(0, 0, 0, 0));
+        blackImage = CreateImage(&black, VkExtent3D{1, 1, 1 }, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT);
+
+        uint32_t magenta = glm::packUnorm4x8(float4(1, 0, 1, 1));
+        std::array<uint32_t, 16 * 16> pixels;
+        for (int x = 0; x < 16; x++)
+        {
+            for (int y = 0; y < 16; y++)
+            {
+                pixels[y * 16 + x] = ((x % 2) ^ (y % 2)) ? magenta : black;
+            }
+        }
+
+        errorCheckerboardImage = CreateImage(pixels.data(), VkExtent3D{16, 16, 1 }, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT);
+
+        VkSamplerCreateInfo samplerInfo{};
+        samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+        samplerInfo.magFilter = VK_FILTER_NEAREST;
+        samplerInfo.minFilter = VK_FILTER_NEAREST;
+
+        vkCreateSampler(device, &samplerInfo, nullptr, &defaultSamplerNearest);
+
+        samplerInfo.magFilter = VK_FILTER_LINEAR;
+        samplerInfo.minFilter = VK_FILTER_LINEAR;
+        vkCreateSampler(device, &samplerInfo, nullptr, &defaultSamplerLinear);
+
+        mainDeletionQueue.PushFunction([&]() {
+            vkDestroySampler(device, defaultSamplerNearest, nullptr);
+            vkDestroySampler(device, defaultSamplerLinear, nullptr);
+
+            DestroyImage(whiteImage);
+            DestroyImage(greyImage);
+            DestroyImage(blackImage);
+            DestroyImage(errorCheckerboardImage);
+        });
     }
 
     void VulkanRenderer::CreateSwapchain(uint32_t width, uint32_t height)
@@ -783,6 +840,75 @@ namespace lumina
     void VulkanRenderer::DestroyBuffer(const AllocatedBuffer& buffer)
     {
         vmaDestroyBuffer(allocator, buffer.buffer, buffer.allocation);
+    }
+    AllocatedImage VulkanRenderer::CreateImage(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped)
+    {
+        AllocatedImage newImage;
+        newImage.imageFormat = format;
+        newImage.imageExtent = size;
+
+        VkImageCreateInfo imageInfo = vkinit::ImageCreateInfo(format, usage, size);
+        if (mipmapped)
+        {
+            imageInfo.mipLevels = static_cast<uint32_t>(std::floor(std::log2(std::max(size.width, size.height)))) + 1;
+        }
+
+        VmaAllocationCreateInfo allocInfo{};
+        allocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+        allocInfo.requiredFlags = static_cast<VkMemoryPropertyFlags>(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+        VK_CHECK(vmaCreateImage(allocator, &imageInfo, &allocInfo, &newImage.image, &newImage.allocation, nullptr));
+
+        VkImageAspectFlags aspectFlag = VK_IMAGE_ASPECT_COLOR_BIT;
+        if (format == VK_FORMAT_D32_SFLOAT)
+        {
+            aspectFlag = VK_IMAGE_ASPECT_DEPTH_BIT;
+        }
+
+        VkImageViewCreateInfo viewInfo = vkinit::ImageviewCreateInfo(format, newImage.image, aspectFlag);
+        viewInfo.subresourceRange.levelCount = imageInfo.mipLevels;
+
+        VK_CHECK(vkCreateImageView(device, &viewInfo, nullptr, &newImage.imageView));
+
+        return newImage;
+    }
+    AllocatedImage VulkanRenderer::CreateImage(void* data, VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped)
+    {
+        size_t dataSize = size.width * size.height * size.depth * 4;
+
+        AllocatedBuffer stagingBuffer = CreateBuffer(dataSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+
+        memcpy(stagingBuffer.allocationInfo.pMappedData, data, dataSize);
+
+        AllocatedImage newImage = CreateImage(size, format, usage | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT, mipmapped);
+
+        ImmediateSubmit([&](VkCommandBuffer command) {
+            vkutil::TransitionImage(command, newImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+
+            VkBufferImageCopy copyRegion {};
+            copyRegion.bufferOffset = 0;
+            copyRegion.bufferRowLength = 0;
+            copyRegion.bufferImageHeight = 0;
+
+            copyRegion.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            copyRegion.imageSubresource.mipLevel = 0;
+            copyRegion.imageSubresource.baseArrayLayer = 0;
+            copyRegion.imageSubresource.layerCount = 1;
+            copyRegion.imageExtent = size;
+
+            vkCmdCopyBufferToImage(command, stagingBuffer.buffer, newImage.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
+
+            vkutil::TransitionImage(command, newImage.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        });
+
+        DestroyBuffer(stagingBuffer);
+
+        return newImage;        
+    }
+    void VulkanRenderer::DestroyImage(const AllocatedImage& image)
+    {
+        vkDestroyImageView(device, image.imageView, nullptr);
+        vmaDestroyImage(allocator, image.image, image.allocation);
     }
     GPUMeshBuffers VulkanRenderer::UploadMesh(tcb::span<uint32_t> indices, tcb::span<Vertex> vertices)
     {
