@@ -18,6 +18,7 @@ namespace lumina
     {
         uint32_t startIndex;
         uint32_t indexCount;
+        Bounds bounds;
         std::shared_ptr<GLTFMaterial> material;
     };
 

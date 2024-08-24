@@ -40,7 +40,9 @@ namespace lumina
         while (running)
         {
             const auto currentTime = std::chrono::high_resolution_clock::now();
-            const float deltaTime  = static_cast<float>(std::chrono::duration_cast<std::chrono::microseconds>(currentTime - previousTime).count()) / 1000000.0f;
+            const float elapsed  = static_cast<float>(std::chrono::duration_cast<std::chrono::microseconds>(currentTime - previousTime).count());
+            const float deltaTime = elapsed / 1000000.0f;
+            const float frameTime = elapsed / 1000.0f;            
             previousTime           = currentTime;
 
             Log::Trace("Engine::Run {}s", deltaTime);
@@ -81,6 +83,7 @@ namespace lumina
                 continue;
             }           
 
+            renderer->stats.frameTime = frameTime;
             renderer->Draw();
         }
     }

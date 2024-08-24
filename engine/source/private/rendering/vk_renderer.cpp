@@ -18,7 +18,12 @@
 #include <glm/ext/matrix_transform.hpp>
 #include <vma/vk_mem_alloc.h>
 
+#ifdef _DEBUG
 constexpr bool USE_VALIDATION_LAYERS = true;
+#else
+constexpr bool USE_VALIDATION_LAYERS = false;
+#endif
+
 
 namespace lumina
 {    
@@ -107,7 +112,7 @@ namespace lumina
         ImGui_ImplSDL2_NewFrame();
         ImGui::NewFrame();
         
-        if (ImGui::Begin("Background"))
+        /*if (ImGui::Begin("Background"))
         {
             ComputeEffect& effect = backgroundEffects[currentBackgroundEffect];
             ImGui::Text("Effect: %s", effect.name);
@@ -115,8 +120,17 @@ namespace lumina
             ImGui::ColorEdit4("Top Color", reinterpret_cast<float*>(&effect.data.data1));
             ImGui::ColorEdit4("Bottom Color", reinterpret_cast<float*>(&effect.data.data2));
         }
-        ImGui::End();
+        ImGui::End();*/
 
+        ImGui::Begin("Render Stats");
+        ImGui::Text("Frame Time : %f ms", stats.frameTime);
+        ImGui::Text("Draw Time:  %f ms", stats.drawTime);
+        ImGui::Text("Scene Update Time: %f ms", stats.sceneUpdateTime);
+        ImGui::Text("Triangles: %i", stats.triangleCount);
+        ImGui::Text("Draw Calls: %i", stats.drawCallCount);
+        ImGui::Checkbox("Opaque Sorting", &enableOpaqueSorting);
+        ImGui::End();
+        
         //ImGui::ShowDemoWindow();
         ImGui::Render();
 
@@ -214,27 +228,38 @@ namespace lumina
     }
     void VulkanRenderer::DrawGeometry(VkCommandBuffer command)
     {
+        stats.drawCallCount = 0;
+        stats.triangleCount = 0;
+
+        auto start = std::chrono::system_clock::now();
+        std::vector<uint32_t> opaqueDraws;
+        if (enableOpaqueSorting)
+        {            
+            opaqueDraws.reserve(mainDrawContext.opaqueSurfaces.size());
+
+            for (uint32_t i = 0; i < mainDrawContext.opaqueSurfaces.size(); i++)
+            {
+                opaqueDraws.push_back(i);
+            }
+
+            std::sort(opaqueDraws.begin(), opaqueDraws.end(), [&](const auto& iA, const auto& iB) {
+                const RenderObject& a = mainDrawContext.opaqueSurfaces[iA];
+                const RenderObject& b = mainDrawContext.opaqueSurfaces[iB];
+                if (a.material == b.material)
+                {
+                    return a.indexBuffer < b.indexBuffer;
+                }
+                else
+                {
+                    return a.material < b.material;
+                }
+            });
+        }        
         VkRenderingAttachmentInfo colorAttachment = vkinit::AttachmentInfo(drawImage.imageView, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
         VkRenderingAttachmentInfo depthAttachment = vkinit::DepthAttachmentInfo(depthImage.imageView, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);        
         VkRenderingInfo renderInfo = vkinit::RenderingInfo(drawExtent, &colorAttachment, &depthAttachment);
         
-        vkCmdBeginRendering(command, &renderInfo);
-
-        VkViewport viewport {};
-        viewport.x = 0;
-        viewport.y = 0;
-        viewport.width = drawExtent.width;
-        viewport.height = drawExtent.height;
-        viewport.minDepth = 0.0f;
-        viewport.maxDepth = 1.0f;
-
-        vkCmdSetViewport(command, 0, 1, &viewport);
-
-        VkRect2D scissor {};
-        scissor.offset = {0, 0};
-        scissor.extent = drawExtent;
-
-        vkCmdSetScissor(command, 0, 1, &scissor);
+        vkCmdBeginRendering(command, &renderInfo);       
 
         AllocatedBuffer gpuSceneDataBuffer = CreateBuffer(sizeof(GPUSceneData), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
 
@@ -251,32 +276,81 @@ namespace lumina
         writer.WriteBuffer(0, gpuSceneDataBuffer.buffer, sizeof(GPUSceneData), 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
         writer.UpdateSet(device, globalDescriptor);
 
-
+        MaterialInstance* lastMaterial = nullptr;
+        MaterialPipeline* lastPipeline = nullptr;
+        VkBuffer lastIndexBuffer = VK_NULL_HANDLE;
+        
         auto draw = [&](const RenderObject& draw)
         {
-            vkCmdBindPipeline(command, VK_PIPELINE_BIND_POINT_GRAPHICS, draw.material->pipeline->pipeline);
-            vkCmdBindDescriptorSets(command, VK_PIPELINE_BIND_POINT_GRAPHICS, draw.material->pipeline->pipelineLayout, 0, 1, &globalDescriptor, 0, nullptr);
-            vkCmdBindDescriptorSets(command, VK_PIPELINE_BIND_POINT_GRAPHICS, draw.material->pipeline->pipelineLayout, 1, 1, &draw.material->materialSet, 0, nullptr);
+            if (draw.material != lastMaterial)
+            {
+                lastMaterial = draw.material;
+                if (draw.material->pipeline != lastPipeline)
+                {
+                    lastPipeline = draw.material->pipeline;
+                    vkCmdBindPipeline(command, VK_PIPELINE_BIND_POINT_GRAPHICS, draw.material->pipeline->pipeline);
+                    vkCmdBindDescriptorSets(command, VK_PIPELINE_BIND_POINT_GRAPHICS, draw.material->pipeline->pipelineLayout, 0, 1, &globalDescriptor, 0, nullptr);
 
-            vkCmdBindIndexBuffer(command, draw.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+                    VkViewport viewport {};
+                    viewport.x = 0;
+                    viewport.y = 0;
+                    viewport.width = drawExtent.width;
+                    viewport.height = drawExtent.height;
+                    viewport.minDepth = 0.0f;
+                    viewport.maxDepth = 1.0f;
+
+                    vkCmdSetViewport(command, 0, 1, &viewport);
+
+                    VkRect2D scissor {};
+                    scissor.offset = {0, 0};
+                    scissor.extent = drawExtent;
+
+                    vkCmdSetScissor(command, 0, 1, &scissor);
+                }
+                vkCmdBindDescriptorSets(command, VK_PIPELINE_BIND_POINT_GRAPHICS, draw.material->pipeline->pipelineLayout, 1, 1, &draw.material->materialSet, 0, nullptr);
+            }
+            if (draw.indexBuffer != lastIndexBuffer)
+            {
+                lastIndexBuffer = draw.indexBuffer;
+                vkCmdBindIndexBuffer(command, draw.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+            }            
 
             GPUDrawPushConstants pushConstants;
             pushConstants.vertexBufferDeviceAddress = draw.vertexBufferDeviceAddress;
             pushConstants.worldMatrix = draw.transform;
             vkCmdPushConstants(command, draw.material->pipeline->pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(GPUDrawPushConstants), &pushConstants);
             vkCmdDrawIndexed(command, draw.indexCount, 1, draw.firstIndex, 0, 0);
+
+            stats.drawCallCount++;
+            stats.triangleCount += draw.indexCount / 3;
         };
 
-        for (auto& r : mainDrawContext.opaqueSurfaces)
+        if (enableOpaqueSorting)
         {
-            draw(r);
+            for (auto& r : opaqueDraws)
+            {
+                draw(mainDrawContext.opaqueSurfaces[r]);
+            }
         }
+        else
+        {
+            for (auto& r : mainDrawContext.opaqueSurfaces)
+            {
+                draw(r);
+            
+            }
+        }        
+        
         for (auto& r : mainDrawContext.transparentSurfaces)
         {
             draw(r);
         }
         
         vkCmdEndRendering(command);
+
+        auto end = std::chrono::system_clock::now();
+        auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+        stats.drawTime = elapsed.count() / 1000.0f;
     }
     void VulkanRenderer::DrawImGui(VkCommandBuffer command, VkImageView targetImageView)
     {
@@ -865,6 +939,8 @@ namespace lumina
     }
     void VulkanRenderer::UpdateScene()
     {
+        auto start = std::chrono::system_clock::now();
+        
         mainDrawContext.opaqueSurfaces.clear();
         mainDrawContext.transparentSurfaces.clear();
 
@@ -880,6 +956,10 @@ namespace lumina
         sceneData.ambientColor = float4(0.1f, 0.1f, 0.1f, 1.0f);
         sceneData.sunlightColor = float4(1.0f, 1.0f, 1.0f, 1.0f);
         sceneData.sunlightDirection = float4(0.0f, 1.0f, 0.5f, 1.0f);
+
+        auto end = std::chrono::system_clock::now();
+        auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+        stats.sceneUpdateTime = elapsed.count() / 1000.0f;
     }
     void GLTFMetallicRoughness::BuildPipelines(VulkanRenderer* renderer)
     {

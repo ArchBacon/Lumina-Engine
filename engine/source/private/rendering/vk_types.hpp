@@ -90,6 +90,13 @@ namespace lumina
         
     };
 
+    struct Bounds
+    {
+        float3 origin;
+        float sphereRadius;
+        float3 extents;
+    };
+
     struct RenderObject
     {
         uint32_t indexCount;
@@ -97,6 +104,7 @@ namespace lumina
         VkBuffer indexBuffer;
 
         MaterialInstance* material;
+        Bounds bounds;
         glm::mat4 transform;
         VkDeviceAddress vertexBufferDeviceAddress;
     };

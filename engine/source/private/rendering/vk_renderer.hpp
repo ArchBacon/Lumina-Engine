@@ -112,6 +112,15 @@ namespace lumina
         void Draw(const glm::mat4& topMatrix, DrawContext& context) override;
     };
 
+    struct RendererStats
+    {
+        float frameTime{};
+        float sceneUpdateTime{};
+        float drawTime{};
+        int triangleCount{};
+        int drawCallCount{};
+    };
+
     constexpr uint8_t FRAME_OVERLAP = 2;
     
     class VulkanRenderer
@@ -180,6 +189,8 @@ namespace lumina
         bool stopRendering {false};
         bool resized {false};
 
+        bool enableOpaqueSorting{false};
+
         void Initialize();
         void Run();
         void Draw();
@@ -211,6 +222,8 @@ namespace lumina
         std::unordered_map<std::string, std::shared_ptr<LoadedGLTF>> loadedScenes;
 
         Camera mainCamera;
+
+        RendererStats stats;
 
     private:
         void InitVulkan();
