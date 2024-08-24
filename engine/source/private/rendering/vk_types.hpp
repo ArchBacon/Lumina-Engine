@@ -104,6 +104,7 @@ namespace lumina
     struct DrawContext
     {
         std::vector<RenderObject> opaqueSurfaces;
+        std::vector<RenderObject> transparentSurfaces;
     };
 
     class IRenderable

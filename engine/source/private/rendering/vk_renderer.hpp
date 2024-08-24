@@ -152,18 +152,9 @@ namespace lumina
         VkDescriptorSet drawImageDescriptor {};
         VkDescriptorSetLayout drawImageDescriptorLayout {};
         VkDescriptorSetLayout gpuSceneDataDescriptorLayout {};
-        VkDescriptorSetLayout singleImageDescriptorLayout {};
         
         VkPipeline gradientPipeline {};
         VkPipelineLayout gradientPipelineLayout {};
-        VkPipeline trianglePipeline {};
-        VkPipelineLayout trianglePipelineLayout {};
-
-        VkPipeline meshPipeline {};
-        VkPipelineLayout meshPipelineLayout {};
-
-        GPUMeshBuffers rectangle{};        
-        std::vector<std::shared_ptr<MeshAsset>> testMeshes;
         
         std::vector<ComputeEffect> backgroundEffects;
         int currentBackgroundEffect {0};
@@ -197,6 +188,13 @@ namespace lumina
         void ImmediateSubmit(std::function<void(VkCommandBuffer cmd)>&& function);
         GPUMeshBuffers UploadMesh(tcb::span<uint32_t> indices, tcb::span<Vertex> vertices);
         void UpdateScene();
+
+        AllocatedBuffer CreateBuffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage);        
+        AllocatedImage CreateImage(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false);
+        AllocatedImage CreateImage(void* data, VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false);
+        void DestroyBuffer(const AllocatedBuffer& buffer);
+        void DestroyImage(const AllocatedImage& image);
+
         
         VkFence immediateFence {};
         VkCommandBuffer immediateCommandBuffer {};
@@ -210,6 +208,8 @@ namespace lumina
         DrawContext mainDrawContext;
         std::unordered_map<std::string, std::shared_ptr<Node>> loadedNodes;
 
+        std::unordered_map<std::string, std::shared_ptr<LoadedGLTF>> loadedScenes;
+
         Camera mainCamera;
 
     private:
@@ -220,8 +220,6 @@ namespace lumina
         void InitDescriptors();
         void InitPipelines();
         void InitBackgroundPipelines();
-        void InitTrianglePipeline();
-        void InitMeshPipeline();
         void InitImGUI();
 
         void InitDefaultData();
@@ -233,21 +231,10 @@ namespace lumina
         void CreateSwapchain(uint32_t width, uint32_t height);
         void ResizeSwapchain();
         void DestroySwapchain();
-
-        AllocatedBuffer CreateBuffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage);
-        void DestroyBuffer(const AllocatedBuffer& buffer);
-
-        AllocatedImage CreateImage(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false);
-        AllocatedImage CreateImage(void* data, VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false);
-        void DestroyImage(const AllocatedImage& image);
-
+        
         FrameData& GetCurrentFrame()
         {
             return frames[frameNumber % FRAME_OVERLAP];
-        }
-
-        
-        
-    
+        }    
     };
 }

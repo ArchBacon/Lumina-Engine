@@ -220,8 +220,6 @@ namespace lumina
         
         vkCmdBeginRendering(command, &renderInfo);
 
-        vkCmdBindPipeline(command, VK_PIPELINE_BIND_POINT_GRAPHICS, trianglePipeline);
-
         VkViewport viewport {};
         viewport.x = 0;
         viewport.y = 0;
@@ -237,41 +235,6 @@ namespace lumina
         scissor.extent = drawExtent;
 
         vkCmdSetScissor(command, 0, 1, &scissor);
-
-        vkCmdDraw(command, 3, 1, 0, 0);
-
-        vkCmdBindPipeline(command, VK_PIPELINE_BIND_POINT_GRAPHICS, meshPipeline);
-
-        VkDescriptorSet imageSet = GetCurrentFrame().frameDescriptors->Allocate(device, singleImageDescriptorLayout);
-        {
-            DescriptorWriter writer{};
-            writer.WriteImage(0, errorCheckerboardImage.imageView, defaultSamplerNearest, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-            writer.UpdateSet(device, imageSet);
-        }
-        vkCmdBindDescriptorSets(command, VK_PIPELINE_BIND_POINT_GRAPHICS, meshPipelineLayout, 0, 1, &imageSet, 0, nullptr);
-        
-        GPUDrawPushConstants pushConstants{};
-        pushConstants.worldMatrix = glm::mat4(1.0f);
-        pushConstants.vertexBufferDeviceAddress = rectangle.vertexBufferDeviceAddress;
-
-        vkCmdPushConstants(command, meshPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(GPUDrawPushConstants), &pushConstants);
-        vkCmdBindIndexBuffer(command, rectangle.indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
-
-        vkCmdDrawIndexed(command, 6, 1, 0, 0, 0);
-    
-        glm::mat4 view = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -5.0f));
-        glm::mat4 projection = glm::perspective(glm::radians(70.0f), static_cast<float>(drawExtent.width) / static_cast<float>(drawExtent.height), 1000.0f, 0.1f);
-
-        projection[1][1] *= -1;
-
-        pushConstants.worldMatrix = projection * view;
-
-        pushConstants.vertexBufferDeviceAddress = testMeshes[2]->buffers.vertexBufferDeviceAddress;
-
-        vkCmdPushConstants(command, meshPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(GPUDrawPushConstants), &pushConstants);
-        vkCmdBindIndexBuffer(command, testMeshes[2]->buffers.indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
-
-        vkCmdDrawIndexed(command, testMeshes[2]->surfaces[0].indexCount, 1, testMeshes[2]->surfaces[0].startIndex, 0, 0);
 
         AllocatedBuffer gpuSceneDataBuffer = CreateBuffer(sizeof(GPUSceneData), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
 
@@ -289,7 +252,7 @@ namespace lumina
         writer.UpdateSet(device, globalDescriptor);
 
 
-        for (const RenderObject& draw : mainDrawContext.opaqueSurfaces)
+        auto draw = [&](const RenderObject& draw)
         {
             vkCmdBindPipeline(command, VK_PIPELINE_BIND_POINT_GRAPHICS, draw.material->pipeline->pipeline);
             vkCmdBindDescriptorSets(command, VK_PIPELINE_BIND_POINT_GRAPHICS, draw.material->pipeline->pipelineLayout, 0, 1, &globalDescriptor, 0, nullptr);
@@ -302,6 +265,15 @@ namespace lumina
             pushConstants.worldMatrix = draw.transform;
             vkCmdPushConstants(command, draw.material->pipeline->pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(GPUDrawPushConstants), &pushConstants);
             vkCmdDrawIndexed(command, draw.indexCount, 1, draw.firstIndex, 0, 0);
+        };
+
+        for (auto& r : mainDrawContext.opaqueSurfaces)
+        {
+            draw(r);
+        }
+        for (auto& r : mainDrawContext.transparentSurfaces)
+        {
+            draw(r);
         }
         
         vkCmdEndRendering(command);
@@ -321,6 +293,8 @@ namespace lumina
     void VulkanRenderer::Shutdown()
     {
         vkDeviceWaitIdle(device);
+
+        loadedScenes.clear();
 
         for (auto& frame : frames)
         {
@@ -474,13 +448,7 @@ namespace lumina
             DescriptorLayoutBuilder builder;
             builder.AddBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
             gpuSceneDataDescriptorLayout = builder.Build(device, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
-        }
-        {
-            DescriptorLayoutBuilder builder;
-            builder.AddBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-            singleImageDescriptorLayout = builder.Build(device, VK_SHADER_STAGE_FRAGMENT_BIT);
-        }
-        
+        }        
         drawImageDescriptor = globalDescriptorAllocator.Allocate(device, drawImageDescriptorLayout);
 
         DescriptorWriter writer{};
@@ -492,7 +460,6 @@ namespace lumina
             globalDescriptorAllocator.DestroyPool(device);
             vkDestroyDescriptorSetLayout(device, drawImageDescriptorLayout, nullptr);
             vkDestroyDescriptorSetLayout(device, gpuSceneDataDescriptorLayout, nullptr);
-            vkDestroyDescriptorSetLayout(device, singleImageDescriptorLayout, nullptr);
         });
 
         for (int i = 0; i < FRAME_OVERLAP; i++)
@@ -517,10 +484,6 @@ namespace lumina
     void VulkanRenderer::InitPipelines()
     {
         InitBackgroundPipelines();
-
-        InitTrianglePipeline();
-        InitMeshPipeline();
-
         metallicRoughnessMaterial.BuildPipelines(this);
     }
     void VulkanRenderer::InitBackgroundPipelines()
@@ -581,98 +544,8 @@ namespace lumina
                 vkDestroyPipeline(device, effect.pipeline, nullptr);
             }
         });
-    }
-    void VulkanRenderer::InitTrianglePipeline()
-    {
-        VkShaderModule triangleVertexShader;
-        if(!vkutil::LoadShaderModule("assets/shaders/colored_triangle.vert.spv", device, &triangleVertexShader))
-        {
-            Log::Error("Error when building Triangle Vertex Shader\n");
-        }
-        VkShaderModule triangleFragmentShader;
-        if(!vkutil::LoadShaderModule("assets/shaders/colored_triangle.frag.spv", device, &triangleFragmentShader))
-        {
-            Log::Error("Error when building Triangle Fragment Shader\n");
-        }
-
-        VkPipelineLayoutCreateInfo pipelineLayoutInfo = vkinit::PipelineLayoutCreateInfo();
-        VK_CHECK(vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &trianglePipelineLayout));
-
-        PipelineBuilder pipelineBuilder {};
-        pipelineBuilder.pipelineLayout = trianglePipelineLayout;
-        pipelineBuilder.SetShaders(triangleVertexShader, triangleFragmentShader);
-        pipelineBuilder.SetInputTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
-        pipelineBuilder.SetPolygonMode(VK_POLYGON_MODE_FILL);
-        pipelineBuilder.SetCullMode(VK_CULL_MODE_NONE, VK_FRONT_FACE_COUNTER_CLOCKWISE);
-        pipelineBuilder.SetMultisamplingNone();
-        pipelineBuilder.DisableBlending();
-        pipelineBuilder.DisableDepthTest();
-
-        pipelineBuilder.SetColorAttachmentFormat(drawImage.imageFormat);
-        pipelineBuilder.SetDepthFormat(depthImage.imageFormat);
-
-        trianglePipeline = pipelineBuilder.BuildPipeline(device);
-
-        vkDestroyShaderModule(device, triangleVertexShader, nullptr);
-        vkDestroyShaderModule(device, triangleFragmentShader, nullptr);
-
-        mainDeletionQueue.PushFunction([&]() {
-            vkDestroyPipelineLayout(device, trianglePipelineLayout, nullptr);
-            vkDestroyPipeline(device, trianglePipeline, nullptr);
-        });
-    }
-    void VulkanRenderer::InitMeshPipeline()
-    {
-        VkShaderModule meshVertexShader;
-        if (!vkutil::LoadShaderModule("assets/shaders/colored_triangle_mesh.vert.spv", device, &meshVertexShader))
-        {
-            Log::Error("Error when building Mesh Vertex Shader\n");
-        }
-        VkShaderModule meshFragmentShader;
-        if (!vkutil::LoadShaderModule("assets/shaders/texture_image.frag.spv", device, &meshFragmentShader))
-        {
-            Log::Error("Error when building Mesh Fragment Shader\n");
-        }
-
-        VkPushConstantRange bufferRange{};
-        bufferRange.offset = 0;
-        bufferRange.size = sizeof(GPUDrawPushConstants);
-        bufferRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-
-        VkPipelineLayoutCreateInfo meshLayoutInfo = vkinit::PipelineLayoutCreateInfo();
-        meshLayoutInfo.pushConstantRangeCount = 1;
-        meshLayoutInfo.pPushConstantRanges = &bufferRange;
-        meshLayoutInfo.pSetLayouts = &singleImageDescriptorLayout;
-        meshLayoutInfo.setLayoutCount = 1;
-
-        VK_CHECK(vkCreatePipelineLayout(device, &meshLayoutInfo, nullptr, &meshPipelineLayout));
-
-        PipelineBuilder pipelineBuilder;
-        pipelineBuilder.pipelineLayout = meshPipelineLayout;
-        pipelineBuilder.SetShaders(meshVertexShader, meshFragmentShader);
-        pipelineBuilder.SetInputTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
-        pipelineBuilder.SetPolygonMode(VK_POLYGON_MODE_FILL);
-        pipelineBuilder.SetCullMode(VK_CULL_MODE_NONE, VK_FRONT_FACE_COUNTER_CLOCKWISE);
-        pipelineBuilder.SetMultisamplingNone();
-        //pipelineBuilder.DisableBlending();
-        pipelineBuilder.EnableBlendingAdditive();
-        //pipelineBuilder.DisableDepthTest();
-        pipelineBuilder.EnableDepthTest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
-
-        pipelineBuilder.SetColorAttachmentFormat(drawImage.imageFormat);
-        pipelineBuilder.SetDepthFormat(depthImage.imageFormat);
-
-        meshPipeline = pipelineBuilder.BuildPipeline(device);
-
-        vkDestroyShaderModule(device, meshVertexShader, nullptr);
-        vkDestroyShaderModule(device, meshFragmentShader, nullptr);
-
-        mainDeletionQueue.PushFunction([&]() {
-            vkDestroyPipelineLayout(device, meshPipelineLayout, nullptr);
-            vkDestroyPipeline(device, meshPipeline, nullptr);
-        });
-      
-    }
+    }    
+    
     void VulkanRenderer::InitImGUI()
     {
         VkDescriptorPoolSize poolSize[] =
@@ -746,22 +619,7 @@ namespace lumina
         rectangleVertices[2].color = { 1.0f, 0.0f, 0.0f, 1.0f};
         rectangleVertices[3].color = { 0.0f, 1.0f, 0.0f, 1.0f};
 
-        std::array<uint32_t, 6> rectangleIndices = {0, 1, 2, 2, 1, 3};
-
-        rectangle = UploadMesh(rectangleIndices, rectangleVertices);
-
-        testMeshes = LoadGLTFMeshes(this, "assets/models/basicmesh.glb").value();
-
-        mainDeletionQueue.PushFunction([&]() {
-            DestroyBuffer(rectangle.indexBuffer);
-            DestroyBuffer(rectangle.vertexBuffer);
-
-            for (auto& mesh : testMeshes)
-            {
-                DestroyBuffer(mesh->buffers.indexBuffer);
-                DestroyBuffer(mesh->buffers.vertexBuffer);
-            }
-        });
+        std::array<uint32_t, 6> rectangleIndices = {0, 1, 2, 2, 1, 3};        
 
         uint32_t white = glm::packUnorm4x8(float4(1, 1, 1, 1));
         whiteImage = CreateImage(&white, VkExtent3D{1, 1, 1 }, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT);
@@ -824,23 +682,11 @@ namespace lumina
         materialResources.dataBufferOffset = 0;
 
         defaultData.data = metallicRoughnessMaterial.WriteMaterial(device, MaterialPass::MainColor, materialResources, globalDescriptorAllocator);
-
-        for (auto& mesh : testMeshes)
-        {
-            auto newNode = std::make_shared<MeshNode>();
-            newNode->mesh = mesh;
-
-            newNode->localTransform = glm::mat4(1.0f);
-            newNode->worldTransform = glm::mat4(1.0f);
-
-            for (auto& s: newNode->mesh->surfaces)
-            {
-                s.material = std::make_shared<GLTFMaterial>(defaultData);
-            }
-
-            loadedNodes[mesh->name] = std::move(newNode);
-        }
         
+        std::string structure = {"assets/models/structure_mat.glb"};
+        auto structureFile = LoadGLTF(this, structure);
+        assert(structureFile.has_value());
+        loadedScenes["structure"] = *structureFile;
     }
 
     void VulkanRenderer::CreateSwapchain(uint32_t width, uint32_t height)
@@ -1020,8 +866,9 @@ namespace lumina
     void VulkanRenderer::UpdateScene()
     {
         mainDrawContext.opaqueSurfaces.clear();
+        mainDrawContext.transparentSurfaces.clear();
 
-        loadedNodes["Suzanne"]->Draw(glm::mat4{1.0f}, mainDrawContext);
+        loadedScenes["structure"]->Draw(glm::mat4{1.0f}, mainDrawContext);
 
         mainCamera.Update();
         sceneData.view = mainCamera.GetViewMatrix();
@@ -1033,18 +880,7 @@ namespace lumina
         sceneData.ambientColor = float4(0.1f, 0.1f, 0.1f, 1.0f);
         sceneData.sunlightColor = float4(1.0f, 1.0f, 1.0f, 1.0f);
         sceneData.sunlightDirection = float4(0.0f, 1.0f, 0.5f, 1.0f);
-
-        for (int x = -3; x < 3; x++)
-        {
-            glm::mat4 scale = glm::scale(glm::mat4{1.0}, float3{0.2f});
-            glm::mat4 translation = glm::translate(glm::mat4{1.0f}, float3{x, 1.0, 0.0});
-
-            loadedNodes["Cube"]->Draw(translation * scale, mainDrawContext);
-        }
-
     }
-        
-
     void GLTFMetallicRoughness::BuildPipelines(VulkanRenderer* renderer)
     {
         VkShaderModule meshVertexShader;
