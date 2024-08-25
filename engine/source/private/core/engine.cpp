@@ -82,7 +82,7 @@ namespace lumina
                 std::this_thread::sleep_for(std::chrono::milliseconds(100));
                 continue;
             }           
-
+            renderer->deltaTime = deltaTime;
             renderer->stats.frameTime = frameTime;
             renderer->Draw();
         }

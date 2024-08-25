@@ -4,20 +4,23 @@
 
 namespace lumina
 {
-    void Camera::Update()
+    void Camera::Update(float deltaTime)
     {
         glm::mat4 cameraRotation = GetRotationmatrix();
-        position += float3(cameraRotation * float4(velocity * 0.5f, 0.0f));
+        position += float3(cameraRotation * float4(velocity * speed, 0.0f) * deltaTime);
     }
 
     void Camera::ProcessSDLEvent(const SDL_Event& event)
     {
         if (event.type == SDL_KEYDOWN)
         {
-            if (event.key.keysym.sym == SDLK_w) { velocity.z = -1.0f;}
-            if (event.key.keysym.sym == SDLK_s) { velocity.z = 1.0f;}
-            if (event.key.keysym.sym == SDLK_a) { velocity.x = -1.0f;}
-            if (event.key.keysym.sym == SDLK_d) { velocity.x = 1.0f;}
+            if (SDL_GetMouseState(nullptr, nullptr) & SDL_BUTTON(SDL_BUTTON_RIGHT))
+            {
+                if (event.key.keysym.sym == SDLK_w) { velocity.z = -1.0f;}
+                if (event.key.keysym.sym == SDLK_s) { velocity.z = 1.0f;}
+                if (event.key.keysym.sym == SDLK_a) { velocity.x = -1.0f;}
+                if (event.key.keysym.sym == SDLK_d) { velocity.x = 1.0f;}
+            }            
         }
         if (event.type == SDL_KEYUP)
         {
@@ -27,11 +30,31 @@ namespace lumina
             if (event.key.keysym.sym == SDLK_d) { velocity.x = 0.0f;}
         }
 
+        if (event.type == SDL_MOUSEBUTTONDOWN)
+        {
+            if (event.button.button == SDL_BUTTON_RIGHT)
+            {
+                SDL_GetMouseState(&lastMousePos.x, &lastMousePos.y);
+                SDL_SetRelativeMouseMode(SDL_TRUE);
+            }
+        }
+        if (event.type == SDL_MOUSEBUTTONUP)
+        {
+            if (event.button.button == SDL_BUTTON_RIGHT)
+            {
+                SDL_SetRelativeMouseMode(SDL_FALSE);
+                SDL_WarpMouseInWindow(nullptr, lastMousePos.x, lastMousePos.y);
+                velocity = float3{0.0f};
+            }
+        }
         if (event.type == SDL_MOUSEMOTION)
         {
-            yaw += static_cast<float>(event.motion.xrel) / 200.0f;
-            pitch -= static_cast<float>(event.motion.yrel) / 200.0f;
-        }
+            if (SDL_GetMouseState(nullptr, nullptr) & SDL_BUTTON(SDL_BUTTON_RIGHT))
+            {
+                yaw += static_cast<float>(event.motion.xrel) / 200.0f;
+                pitch -= static_cast<float>(event.motion.yrel) / 200.0f;
+            }
+        }       
     }
 
     glm::mat4 Camera::GetViewMatrix()

@@ -145,6 +145,8 @@ namespace lumina
         VkSwapchainKHR swapchain {};
         VkFormat swapchainImageFormat {};
 
+        float deltaTime{};
+
         std::vector<VkImage> swapchainImages {};
         std::vector<VkImageView> swapchainImageViews {};
         VkExtent2D swapchainExtent {};
@@ -182,6 +184,7 @@ namespace lumina
         VkSampler defaultSamplerNearest;
         
         VkExtent2D drawExtent;
+        VkExtent2D maxMonitorExtent;
         
         VkExtent2D windowExtent {1080, 720};
         SDL_Window* window {nullptr};

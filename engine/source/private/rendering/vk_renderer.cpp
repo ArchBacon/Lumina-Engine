@@ -83,6 +83,15 @@ namespace lumina
         auto windowFlags = static_cast<SDL_WindowFlags>(SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);
         window = SDL_CreateWindow("Lumina Engine", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, windowExtent.width, windowExtent.height, windowFlags);
 
+        SDL_DisplayMode current;
+        if (SDL_GetCurrentDisplayMode(0, &current) != 0)
+        {
+            Log::Error("SDL_GetCurrentDisplayMode failed: {}", SDL_GetError());
+        }
+
+        maxMonitorExtent.width = current.w;
+        maxMonitorExtent.height = current.h;        
+        
         InitVulkan();
         InitSwapchain();
         InitCommands();
@@ -203,18 +212,18 @@ namespace lumina
 
         const VkCommandBufferBeginInfo commandBeginInfo = vkinit::CommandBufferBeginInfo(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
 
-        drawExtent.width = drawImage.imageExtent.width;
-        drawExtent.height = drawImage.imageExtent.height;
+        drawExtent.width = std::min(swapchainExtent.width, drawImage.imageExtent.width) * 1.0f;
+        drawExtent.height = std::min(swapchainExtent.height, drawImage.imageExtent.height) * 1.0f;
         
         VK_CHECK(vkBeginCommandBuffer(command, &commandBeginInfo));
 
         vkutil::TransitionImage(command, drawImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+        vkutil::TransitionImage(command, depthImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
 
         DrawBackground(command);
 
         vkutil::TransitionImage(command, drawImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-        vkutil::TransitionImage(command, depthImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
-
+        
         DrawGeometry(command);
 
         vkutil::TransitionImage(command, drawImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
@@ -251,7 +260,7 @@ namespace lumina
         presentInfo.pImageIndices = &swapchainImageIndex;
 
         VkResult presentResult = vkQueuePresentKHR(graphicsQueue, &presentInfo);
-        if (presentResult == VK_ERROR_OUT_OF_DATE_KHR)
+        if (presentResult == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR)
         {
             resized = true;
         }
@@ -267,8 +276,9 @@ namespace lumina
         vkCmdBindDescriptorSets(command, VK_PIPELINE_BIND_POINT_COMPUTE, gradientPipelineLayout, 0, 1, &drawImageDescriptor, 0, nullptr);
     
         vkCmdPushConstants(command, gradientPipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(ComputePushConstants), &effect.data);
-                
-        vkCmdDispatch(command, drawExtent.width / 16, drawExtent.height / 16, 1);
+        
+        vkCmdDispatch(command, static_cast<uint32_t>(std::ceil(static_cast<float>(drawExtent.width) / 16.0f)),
+            static_cast<uint32_t>(std::ceil(static_cast<float>(drawExtent.height) / 16.0f)), 1);
     }
     void VulkanRenderer::DrawGeometry(VkCommandBuffer command)
     {
@@ -309,7 +319,7 @@ namespace lumina
                 }
             });
         }        
-        VkRenderingAttachmentInfo colorAttachment = vkinit::AttachmentInfo(drawImage.imageView, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+        VkRenderingAttachmentInfo colorAttachment = vkinit::AttachmentInfo(drawImage.imageView, nullptr, VK_IMAGE_LAYOUT_GENERAL);
         VkRenderingAttachmentInfo depthAttachment = vkinit::DepthAttachmentInfo(depthImage.imageView, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);        
         VkRenderingInfo renderInfo = vkinit::RenderingInfo(drawExtent, &colorAttachment, &depthAttachment);
         
@@ -323,7 +333,7 @@ namespace lumina
 
         auto* sceneDataUniform = static_cast<GPUSceneData*>(gpuSceneDataBuffer.allocation->GetMappedData());
         *sceneDataUniform = sceneData;
-
+        
         VkDescriptorSet globalDescriptor = GetCurrentFrame().frameDescriptors->Allocate(device, gpuSceneDataDescriptorLayout);
 
         DescriptorWriter writer{};
@@ -348,8 +358,8 @@ namespace lumina
                     VkViewport viewport {};
                     viewport.x = 0;
                     viewport.y = 0;
-                    viewport.width = drawExtent.width;
-                    viewport.height = drawExtent.height;
+                    viewport.width = static_cast<float>(drawExtent.width);
+                    viewport.height = static_cast<float>(drawExtent.height);
                     viewport.minDepth = 0.0f;
                     viewport.maxDepth = 1.0f;
 
@@ -399,6 +409,9 @@ namespace lumina
         {
             draw(r);
         }
+
+        mainDrawContext.opaqueSurfaces.clear();
+        mainDrawContext.transparentSurfaces.clear();
         
         vkCmdEndRendering(command);
 
@@ -408,7 +421,7 @@ namespace lumina
     }
     void VulkanRenderer::DrawImGui(VkCommandBuffer command, VkImageView targetImageView)
     {
-        VkRenderingAttachmentInfo colorAttachment = vkinit::AttachmentInfo(targetImageView, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+        VkRenderingAttachmentInfo colorAttachment = vkinit::AttachmentInfo(targetImageView, nullptr, VK_IMAGE_LAYOUT_GENERAL);
         VkRenderingInfo renderInfo = vkinit::RenderingInfo(swapchainExtent, &colorAttachment, nullptr);
 
         vkCmdBeginRendering(command, &renderInfo);
@@ -475,8 +488,8 @@ namespace lumina
     void VulkanRenderer::InitSwapchain()
     {
         CreateSwapchain(windowExtent.width, windowExtent.height);
-
-        VkExtent3D drawImageExtent = {windowExtent.width, windowExtent.height, 1};
+        
+        VkExtent3D drawImageExtent = {maxMonitorExtent.width, maxMonitorExtent.height, 1};
 
         drawImage.imageFormat = VK_FORMAT_R16G16B16A16_SFLOAT;
         drawImage.imageExtent = drawImageExtent;
@@ -723,7 +736,7 @@ namespace lumina
         ImGui_ImplVulkan_Init(&initInfo);
         ImGui_ImplVulkan_CreateFontsTexture();
 
-        mainDeletionQueue.PushFunction([=]() {
+        mainDeletionQueue.PushFunction([this, imGUIPool]() {
             ImGui_ImplVulkan_Shutdown();
             vkDestroyDescriptorPool(device, imGUIPool, nullptr);
         });
@@ -811,7 +824,7 @@ namespace lumina
 
         defaultData.data = metallicRoughnessMaterial.WriteMaterial(device, MaterialPass::MainColor, materialResources, globalDescriptorAllocator);
         
-        std::string structure = {"assets/models/damaged_helmet.gltf"};
+        std::string structure = {"assets/models/structure_mat.glb"};
         auto structureFile = LoadGLTF(this, structure);
         assert(structureFile.has_value());
         loadedScenes["structure"] = *structureFile;
@@ -835,7 +848,6 @@ namespace lumina
     void VulkanRenderer::ResizeSwapchain()
     {
         vkDeviceWaitIdle(device);
-
         DestroySwapchain();
 
         int width, height;
@@ -1001,13 +1013,10 @@ namespace lumina
     void VulkanRenderer::UpdateScene()
     {
         auto start = std::chrono::system_clock::now();
-        
-        mainDrawContext.opaqueSurfaces.clear();
-        mainDrawContext.transparentSurfaces.clear();
 
         loadedScenes["structure"]->Draw(glm::mat4{1.0f}, mainDrawContext);
-
-        mainCamera.Update();
+                
+        mainCamera.Update(deltaTime);
         sceneData.view = mainCamera.GetViewMatrix();
         sceneData.proj = glm::perspective(glm::radians(70.0f), static_cast<float>(windowExtent.width) / static_cast<float>(windowExtent.height), 10000.0f, 0.1f);
 

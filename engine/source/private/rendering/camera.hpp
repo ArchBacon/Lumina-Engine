@@ -9,6 +9,7 @@ namespace lumina
     public:
         float3 velocity{};
         float3 position{};
+        float speed{20.0f};
 
         float pitch{};
         float yaw{};
@@ -17,7 +18,10 @@ namespace lumina
         glm::mat4 GetRotationmatrix();
 
         void ProcessSDLEvent(const SDL_Event& event);
-        void Update();
+        void Update(float deltaTime);
+
+    private:
+        int2 lastMousePos{};
     };
 
 }
