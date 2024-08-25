@@ -3,6 +3,7 @@
 #include "../rendering/vk_images.hpp"
 #include "../rendering/vk_initializers.hpp"
 #include "../rendering/vk_types.hpp"
+#include "../rendering/vk_buffer_utils.hpp"
 
 #include <SDL/SDL.h>
 #include <SDL/SDL_vulkan.h>
@@ -325,10 +326,10 @@ namespace lumina
         
         vkCmdBeginRendering(command, &renderInfo);       
 
-        AllocatedBuffer gpuSceneDataBuffer = CreateBuffer(sizeof(GPUSceneData), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+        AllocatedBuffer gpuSceneDataBuffer = CreateBuffer(allocator, sizeof(GPUSceneData), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
 
         GetCurrentFrame().deletionQueue.PushFunction([gpuSceneDataBuffer, this]() {
-            DestroyBuffer(gpuSceneDataBuffer);
+            DestroyBuffer(allocator, gpuSceneDataBuffer);
         });
 
         auto* sceneDataUniform = static_cast<GPUSceneData*>(gpuSceneDataBuffer.allocation->GetMappedData());
@@ -810,13 +811,13 @@ namespace lumina
         materialResources.metallicRoughnessImage = whiteImage;
         materialResources.metallicRoughnessSampler = defaultSamplerLinear;
 
-        AllocatedBuffer materialConstants = CreateBuffer(sizeof(GLTFMetallicRoughness::MaterialConstants), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+        AllocatedBuffer materialConstants = CreateBuffer(allocator,sizeof(GLTFMetallicRoughness::MaterialConstants), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
         auto sceneUniformData = static_cast<GLTFMetallicRoughness::MaterialConstants*>(materialConstants.allocation->GetMappedData());
         sceneUniformData->colorFactors = float4{1.0f, 1.0f, 1.0f, 1.0f};
         sceneUniformData->metallicRoughnessFactors = float4{1.0f, 0.5f, 0.0f, 0.0f};
 
         mainDeletionQueue.PushFunction([this, materialConstants]() {
-            DestroyBuffer(materialConstants);
+            DestroyBuffer(allocator, materialConstants);
         });
 
         materialResources.dataBuffer = materialConstants.buffer;
@@ -869,27 +870,6 @@ namespace lumina
             vkDestroyImageView(device, imageView, nullptr);
         }
     }
-    AllocatedBuffer VulkanRenderer::CreateBuffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage)
-    {
-        VkBufferCreateInfo bufferInfo = {};
-        bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-        bufferInfo.size = allocSize;
-        bufferInfo.usage = usage;
-        bufferInfo.pNext = nullptr;
-
-        VmaAllocationCreateInfo allocInfo = {};
-        allocInfo.usage = memoryUsage;
-        allocInfo.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT;
-        AllocatedBuffer newBuffer;
-
-        VK_CHECK(vmaCreateBuffer(allocator, &bufferInfo, &allocInfo, &newBuffer.buffer, &newBuffer.allocation, &newBuffer.allocationInfo));
-
-        return newBuffer;
-    }
-    void VulkanRenderer::DestroyBuffer(const AllocatedBuffer& buffer)
-    {
-        vmaDestroyBuffer(allocator, buffer.buffer, buffer.allocation);
-    }
     AllocatedImage VulkanRenderer::CreateImage(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped)
     {
         AllocatedImage newImage;
@@ -925,7 +905,7 @@ namespace lumina
     {
         size_t dataSize = size.width * size.height * size.depth * 4;
 
-        AllocatedBuffer stagingBuffer = CreateBuffer(dataSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+        AllocatedBuffer stagingBuffer = CreateBuffer(allocator, dataSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
 
         memcpy(stagingBuffer.allocationInfo.pMappedData, data, dataSize);
 
@@ -957,7 +937,7 @@ namespace lumina
             }            
         });
 
-        DestroyBuffer(stagingBuffer);
+        DestroyBuffer(allocator, stagingBuffer);
 
         return newImage;        
     }
@@ -973,7 +953,7 @@ namespace lumina
 
         GPUMeshBuffers newSurface;
 
-        newSurface.vertexBuffer = CreateBuffer(vertexBufferSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
+        newSurface.vertexBuffer = CreateBuffer(allocator, vertexBufferSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
 
         VkBufferDeviceAddressInfo addressInfo {};
         addressInfo.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
@@ -981,9 +961,9 @@ namespace lumina
 
         newSurface.vertexBufferDeviceAddress = vkGetBufferDeviceAddress(device, &addressInfo);
 
-        newSurface.indexBuffer = CreateBuffer(indexBufferSize, VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
+        newSurface.indexBuffer = CreateBuffer(allocator, indexBufferSize, VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
 
-        const AllocatedBuffer stagingBuffer = CreateBuffer(vertexBufferSize + indexBufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
+        const AllocatedBuffer stagingBuffer = CreateBuffer(allocator, vertexBufferSize + indexBufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
 
         void* data = stagingBuffer.allocationInfo.pMappedData;
 
@@ -1006,7 +986,7 @@ namespace lumina
             vkCmdCopyBuffer(command, stagingBuffer.buffer, newSurface.indexBuffer.buffer, 1, &indexCopy);
         });
 
-        DestroyBuffer(stagingBuffer);
+        DestroyBuffer(allocator, stagingBuffer);
 
         return newSurface;        
     }

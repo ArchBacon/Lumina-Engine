@@ -1,6 +1,7 @@
 ﻿#include "vk_loader.hpp"
 #include "stb_image/stb_image.h"
 #include "vk_renderer.hpp"
+#include "vk_buffer_utils.hpp"
 #include "vk_initializers.hpp"
 #include "vk_types.hpp"
 
@@ -157,12 +158,12 @@ namespace lumina
         VkDevice device = creator->device;
 
         descriptorPool.DestroyPool(device);
-        creator->DestroyBuffer(materialDataBuffer);
+        DestroyBuffer(creator->allocator, materialDataBuffer);
 
         for (auto& [k, v] : meshes)
         {
-            creator->DestroyBuffer(v->buffers.indexBuffer);
-            creator->DestroyBuffer(v->buffers.vertexBuffer);
+            DestroyBuffer(creator->allocator, v->buffers.indexBuffer);
+            DestroyBuffer(creator->allocator, v->buffers.vertexBuffer);
         }
 
         for (auto& [k, v] : images)
@@ -276,7 +277,7 @@ namespace lumina
             }
         }
 
-        file.materialDataBuffer = renderer->CreateBuffer(sizeof(GLTFMetallicRoughness::MaterialConstants) * gltfAsset.materials.size(),
+        file.materialDataBuffer = CreateBuffer(renderer->allocator,sizeof(GLTFMetallicRoughness::MaterialConstants) * gltfAsset.materials.size(),
             VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
         int dataIndex{0};
 

@@ -203,11 +203,9 @@ namespace lumina
         void ImmediateSubmit(std::function<void(VkCommandBuffer cmd)>&& function);
         GPUMeshBuffers UploadMesh(tcb::span<uint32_t> indices, tcb::span<Vertex> vertices);
         void UpdateScene();
-
-        AllocatedBuffer CreateBuffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage);        
+      
         AllocatedImage CreateImage(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false);
         AllocatedImage CreateImage(void* data, VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false);
-        void DestroyBuffer(const AllocatedBuffer& buffer);
         void DestroyImage(const AllocatedImage& image);
 
         
@@ -221,8 +219,6 @@ namespace lumina
         GLTFMetallicRoughness metallicRoughnessMaterial;
 
         DrawContext mainDrawContext;
-        std::unordered_map<std::string, std::shared_ptr<Node>> loadedNodes;
-
         std::unordered_map<std::string, std::shared_ptr<LoadedGLTF>> loadedScenes;
 
         Camera mainCamera;
