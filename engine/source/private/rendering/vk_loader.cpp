@@ -38,7 +38,7 @@ namespace lumina
                         imageSize.height = height;
                         imageSize.depth = 1;
 
-                        newImage = renderer->CreateImage(data, imageSize, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false);
+                        newImage = renderer->CreateImage(data, imageSize, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, true);
 
                         stbi_image_free(data);
                     }
@@ -59,7 +59,7 @@ namespace lumina
                         imageSize.height = height;
                         imageSize.depth = 1;
 
-                        newImage = renderer->CreateImage(data, imageSize, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false);
+                        newImage = renderer->CreateImage(data, imageSize, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, true);
 
                         stbi_image_free(data);
                     }
@@ -92,7 +92,7 @@ namespace lumina
                                         imageSize,
                                         VK_FORMAT_R8G8B8A8_UNORM,
                                         VK_IMAGE_USAGE_SAMPLED_BIT,
-                                        false
+                                        true
                                         );
 
                                     stbi_image_free(data);
@@ -380,6 +380,17 @@ namespace lumina
                         });
                     }
                 }
+                //Load Vertex UVs
+                {
+                    auto uv = primitives.findAttribute("TEXCOORD_0");
+                    if (uv != primitives.attributes.end())
+                    {
+                        fastgltf::iterateAccessorWithIndex<float2>(gltfAsset, gltfAsset.accessors[(*uv).second], [&](float2 vertex, size_t index) {
+                            vertices[initialVertex + index].uv_x = vertex.x;
+                            vertices[initialVertex + index].uv_y = vertex.y;
+                        });
+                    }
+                }               
                 //Load Vertex Colors
                 {
                     auto colors = primitives.findAttribute("COLOR_0");
@@ -399,6 +410,18 @@ namespace lumina
                 {
                     newSurface.material = materials[0];
                 }
+
+                //BoundingBoxes for Frustum Culling
+                float3 minPosition = vertices[initialVertex].position;
+                float3 maxPosition = vertices[initialVertex].position;
+                for (size_t i = initialVertex; i < vertices.size(); i++)
+                {
+                    minPosition = glm::min(minPosition, vertices[i].position);
+                    maxPosition = glm::max(maxPosition, vertices[i].position);
+                }
+                newSurface.bounds.origin = (maxPosition + minPosition) / 2.0f;
+                newSurface.bounds.extents = (maxPosition - minPosition) / 2.0f;
+                newSurface.bounds.sphereRadius = glm::length(newSurface.bounds.extents);                
                 newMesh->surfaces.push_back(newSurface);
             }
             newMesh->buffers = renderer->UploadMesh(indices, vertices);

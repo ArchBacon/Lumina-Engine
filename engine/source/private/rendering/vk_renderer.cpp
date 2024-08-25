@@ -26,7 +26,46 @@ constexpr bool USE_VALIDATION_LAYERS = false;
 
 
 namespace lumina
-{    
+{
+    bool IsVisible(const RenderObject& object, const glm::mat4& viewProjection)
+    {
+        std::array<glm::vec3, 8> corners {
+            glm::vec3 { 1, 1, 1 },
+            glm::vec3 { 1, 1, -1 },
+            glm::vec3 { 1, -1, 1 },
+            glm::vec3 { 1, -1, -1 },
+            glm::vec3 { -1, 1, 1 },
+            glm::vec3 { -1, 1, -1 },
+            glm::vec3 { -1, -1, 1 },
+            glm::vec3 { -1, -1, -1 },
+        };
+
+        glm::mat4 matrix = viewProjection * object.transform;
+
+        auto min = float3{1.5f, 1.5f, 1.5f};
+        auto max = float3{-1.5f, -1.5f, -1.5f};
+
+        for (int c = 0; c < 8; c++)
+        {
+            float4 v = matrix * float4(object.bounds.origin + (corners[c] * object.bounds.extents), 1.0f);
+
+            v.x = v.x / v.w;
+            v.y = v.y / v.w;
+            v.z = v.z / v.w;
+
+            min = glm::min(float3 { v.x, v.y, v.z }, min);
+            max = glm::max(float3 { v.x, v.y, v.z }, max);
+        }
+        if (min.z > 1.0f || max.z < 0.0f || min.x > 1.0f || max.x < -1.0f || min.y > 1.0f || max.y < -1.0f)
+        {
+            return false;            
+        }
+        else
+        {
+            return true;
+        }
+    }
+    
     VulkanRenderer::VulkanRenderer()
     {
         Initialize();
@@ -123,12 +162,17 @@ namespace lumina
         ImGui::End();*/
 
         ImGui::Begin("Render Stats");
+        ImGui::Text("FPS: %f", 1000.0f / stats.frameTime);
         ImGui::Text("Frame Time : %f ms", stats.frameTime);
         ImGui::Text("Draw Time:  %f ms", stats.drawTime);
         ImGui::Text("Scene Update Time: %f ms", stats.sceneUpdateTime);
         ImGui::Text("Triangles: %i", stats.triangleCount);
         ImGui::Text("Draw Calls: %i", stats.drawCallCount);
         ImGui::Checkbox("Opaque Sorting", &enableOpaqueSorting);
+        if(ImGui::Checkbox("CPU Frustum Culling", &enableCPUFrustumCulling))
+        {
+            enableOpaqueSorting = true;
+        }
         ImGui::End();
         
         //ImGui::ShowDemoWindow();
@@ -239,7 +283,17 @@ namespace lumina
 
             for (uint32_t i = 0; i < mainDrawContext.opaqueSurfaces.size(); i++)
             {
-                opaqueDraws.push_back(i);
+                if (enableCPUFrustumCulling)
+                {
+                    if (IsVisible(mainDrawContext.opaqueSurfaces[i], sceneData.viewProj))
+                    {
+                        opaqueDraws.push_back(i);
+                    }
+                }               
+                else
+                {
+                    opaqueDraws.push_back(i); 
+                }
             }
 
             std::sort(opaqueDraws.begin(), opaqueDraws.end(), [&](const auto& iA, const auto& iB) {
@@ -757,7 +811,7 @@ namespace lumina
 
         defaultData.data = metallicRoughnessMaterial.WriteMaterial(device, MaterialPass::MainColor, materialResources, globalDescriptorAllocator);
         
-        std::string structure = {"assets/models/structure_mat.glb"};
+        std::string structure = {"assets/models/damaged_helmet.gltf"};
         auto structureFile = LoadGLTF(this, structure);
         assert(structureFile.has_value());
         loadedScenes["structure"] = *structureFile;
@@ -881,7 +935,14 @@ namespace lumina
 
             vkCmdCopyBufferToImage(command, stagingBuffer.buffer, newImage.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
 
-            vkutil::TransitionImage(command, newImage.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+            if (mipmapped)
+            {
+                vkutil::GenerateMipMaps(command, newImage.image, VkExtent2D{newImage.imageExtent.width, newImage.imageExtent.height});
+            }
+            else
+            {
+                vkutil::TransitionImage(command, newImage.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+            }            
         });
 
         DestroyBuffer(stagingBuffer);
@@ -1067,11 +1128,18 @@ namespace lumina
             def.firstIndex = surface.startIndex;
             def.indexBuffer = mesh->buffers.indexBuffer.buffer;
             def.material = &surface.material->data;
-
+            def.bounds = surface.bounds;
             def.transform = nodeMatrix;
             def.vertexBufferDeviceAddress = mesh->buffers.vertexBufferDeviceAddress;
 
-            context.opaqueSurfaces.push_back(def);
+            if (surface.material->data.passType == MaterialPass::Transparent)
+            {
+                context.transparentSurfaces.push_back(def);
+            }
+            else
+            {
+                context.opaqueSurfaces.push_back(def);
+            }            
         }       
         Node::Draw(topMatrix, context);            
     }

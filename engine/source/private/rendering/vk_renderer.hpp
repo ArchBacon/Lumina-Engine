@@ -190,6 +190,7 @@ namespace lumina
         bool resized {false};
 
         bool enableOpaqueSorting{false};
+        bool enableCPUFrustumCulling{false};
 
         void Initialize();
         void Run();
