@@ -161,8 +161,11 @@ namespace lumina
         VmaAllocator allocator {};
         DescriptorAllocatorGrowable globalDescriptorAllocator {};
         VkDescriptorSet drawImageDescriptor {};
+        VkDescriptorSet imguiImageDescriptor {};
+        
         VkDescriptorSetLayout drawImageDescriptorLayout {};
         VkDescriptorSetLayout gpuSceneDataDescriptorLayout {};
+        VkDescriptorSetLayout imguiImageDescriptorLayout {};
         
         VkPipeline gradientPipeline {};
         VkPipelineLayout gradientPipelineLayout {};
@@ -173,6 +176,7 @@ namespace lumina
         //Draw Resources
         AllocatedImage drawImage;
         AllocatedImage depthImage;
+        AllocatedImage imguiImage;
 
         //Textures
         AllocatedImage whiteImage;

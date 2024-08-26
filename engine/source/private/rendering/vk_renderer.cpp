@@ -97,9 +97,27 @@ namespace lumina
         InitSwapchain();
         InitCommands();
         InitSyncStructures();
+
+        VkSamplerCreateInfo samplerInfo{};
+        samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+        samplerInfo.magFilter = VK_FILTER_NEAREST;
+        samplerInfo.minFilter = VK_FILTER_NEAREST;
+
+        vkCreateSampler(device, &samplerInfo, nullptr, &defaultSamplerNearest);
+
+        samplerInfo.magFilter = VK_FILTER_LINEAR;
+        samplerInfo.minFilter = VK_FILTER_LINEAR;
+        vkCreateSampler(device, &samplerInfo, nullptr, &defaultSamplerLinear);
+
+        mainDeletionQueue.PushFunction([&]() {
+            vkDestroySampler(device, defaultSamplerNearest, nullptr);
+            vkDestroySampler(device, defaultSamplerLinear, nullptr);
+        });
+        
+        
         InitDescriptors();
         InitPipelines();
-        InitImGUI();
+        InitImGUI();        
         InitDefaultData();
     }
     void VulkanRenderer::Run()
@@ -171,6 +189,9 @@ namespace lumina
         }
         ImGui::End();*/
 
+        //Enable Docking Space
+        ImGui::DockSpaceOverViewport();       
+
         ImGui::Begin("Render Stats");
         ImGui::Text("FPS: %f", 1000.0f / stats.frameTime);
         ImGui::Text("Frame Time : %f ms", stats.frameTime);
@@ -184,8 +205,12 @@ namespace lumina
             enableOpaqueSorting = true;
         }
         ImGui::End();
+
+        ImGui::Begin("Vulkan Renderer");
+        ImGui::Image((void*)(intptr_t)imguiImageDescriptor, ImGui::GetContentRegionAvail());
+        ImGui::End();
         
-        //ImGui::ShowDemoWindow();
+        ImGui::ShowDemoWindow();
         ImGui::Render();
 
         UpdateScene();
@@ -233,6 +258,10 @@ namespace lumina
         vkutil::CopyImageToImage(command, drawImage.image, swapchainImages[swapchainImageIndex], drawExtent, swapchainExtent);
 
         vkutil::TransitionImage(command, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+        vkutil::TransitionImage(command, drawImage.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL);
+        vkutil::TransitionImage(command, drawImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+        vkutil::TransitionImage(command, imguiImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
         
         DrawImGui(command, swapchainImageViews[swapchainImageIndex]);
         
@@ -500,6 +529,8 @@ namespace lumina
         drawImageUsages |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
         drawImageUsages |= VK_IMAGE_USAGE_STORAGE_BIT;
         drawImageUsages |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+        drawImageUsages |= VK_IMAGE_USAGE_SAMPLED_BIT;
+
 
         VkImageCreateInfo rimgInfo = vkinit::ImageCreateInfo(drawImage.imageFormat, drawImageUsages, drawImage.imageExtent);
 
@@ -526,12 +557,29 @@ namespace lumina
 
         VK_CHECK(vkCreateImageView(device, &dviewInfo, nullptr, &depthImage.imageView));
 
+        //Create ImGui Image
+        imguiImage.imageFormat = VK_FORMAT_B8G8R8A8_UNORM;
+        imguiImage.imageExtent = drawImageExtent;
+
+        VkImageUsageFlags imguiImageUsages{};
+        imguiImageUsages |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+        imguiImageUsages |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+        imguiImageUsages |= VK_IMAGE_USAGE_SAMPLED_BIT;
+
+        VkImageCreateInfo imguiInfo = vkinit::ImageCreateInfo(imguiImage.imageFormat, imguiImageUsages, imguiImage.imageExtent);
+        vmaCreateImage(allocator, &imguiInfo, &rimgAllocationInfo, &imguiImage.image, &imguiImage.allocation, nullptr);
+        VkImageViewCreateInfo imguiViewInfo = vkinit::ImageviewCreateInfo(imguiImage.imageFormat, imguiImage.image, VK_IMAGE_ASPECT_COLOR_BIT);
+        VK_CHECK(vkCreateImageView(device, &imguiViewInfo, nullptr, &imguiImage.imageView));
+        
         mainDeletionQueue.PushFunction([&]() {
             vkDestroyImageView(device, drawImage.imageView, nullptr);
             vmaDestroyImage(allocator, drawImage.image, drawImage.allocation);
 
             vkDestroyImageView(device, depthImage.imageView, nullptr);
             vmaDestroyImage(allocator, depthImage.image, depthImage.allocation);
+
+            vkDestroyImageView(device, imguiImage.imageView, nullptr);
+            vmaDestroyImage(allocator, imguiImage.image, imguiImage.allocation);
         });
     }
 
@@ -590,18 +638,27 @@ namespace lumina
             DescriptorLayoutBuilder builder;
             builder.AddBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
             gpuSceneDataDescriptorLayout = builder.Build(device, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
-        }        
+        }
+        {
+            DescriptorLayoutBuilder builder;
+            builder.AddBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+            imguiImageDescriptorLayout = builder.Build(device, VK_SHADER_STAGE_FRAGMENT_BIT);
+        }
         drawImageDescriptor = globalDescriptorAllocator.Allocate(device, drawImageDescriptorLayout);
-
+        imguiImageDescriptor = globalDescriptorAllocator.Allocate(device, imguiImageDescriptorLayout);
+        
         DescriptorWriter writer{};
         writer.WriteImage(0, drawImage.imageView, VK_NULL_HANDLE, VK_IMAGE_LAYOUT_GENERAL, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+        writer.UpdateSet(device, drawImageDescriptor);
 
-        writer.UpdateSet(device, drawImageDescriptor);       
+        writer.WriteImage(0, drawImage.imageView, defaultSamplerLinear, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+        writer.UpdateSet(device, imguiImageDescriptor);
 
         mainDeletionQueue.PushFunction([&]() {
             globalDescriptorAllocator.DestroyPool(device);
             vkDestroyDescriptorSetLayout(device, drawImageDescriptorLayout, nullptr);
             vkDestroyDescriptorSetLayout(device, gpuSceneDataDescriptorLayout, nullptr);
+            vkDestroyDescriptorSetLayout(device, imguiImageDescriptorLayout, nullptr);
         });
 
         for (int i = 0; i < FRAME_OVERLAP; i++)
@@ -737,6 +794,9 @@ namespace lumina
         ImGui_ImplVulkan_Init(&initInfo);
         ImGui_ImplVulkan_CreateFontsTexture();
 
+        ImGuiIO& io = ImGui::GetIO();
+        io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+
         mainDeletionQueue.PushFunction([this, imGUIPool]() {
             ImGui_ImplVulkan_Shutdown();
             vkDestroyDescriptorPool(device, imGUIPool, nullptr);
@@ -784,7 +844,7 @@ namespace lumina
 
         errorCheckerboardImage = CreateImage(pixels.data(), VkExtent3D{16, 16, 1 }, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT);
 
-        VkSamplerCreateInfo samplerInfo{};
+        /*VkSamplerCreateInfo samplerInfo{};
         samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
         samplerInfo.magFilter = VK_FILTER_NEAREST;
         samplerInfo.minFilter = VK_FILTER_NEAREST;
@@ -793,11 +853,11 @@ namespace lumina
 
         samplerInfo.magFilter = VK_FILTER_LINEAR;
         samplerInfo.minFilter = VK_FILTER_LINEAR;
-        vkCreateSampler(device, &samplerInfo, nullptr, &defaultSamplerLinear);
+        vkCreateSampler(device, &samplerInfo, nullptr, &defaultSamplerLinear);*/
 
         mainDeletionQueue.PushFunction([&]() {
-            vkDestroySampler(device, defaultSamplerNearest, nullptr);
-            vkDestroySampler(device, defaultSamplerLinear, nullptr);
+            //vkDestroySampler(device, defaultSamplerNearest, nullptr);
+            //vkDestroySampler(device, defaultSamplerLinear, nullptr);
 
             DestroyImage(whiteImage);
             DestroyImage(greyImage);
@@ -909,7 +969,7 @@ namespace lumina
 
         memcpy(stagingBuffer.allocationInfo.pMappedData, data, dataSize);
 
-        AllocatedImage newImage = CreateImage(size, format, usage | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT, mipmapped);
+        AllocatedImage newImage = CreateImage(size, format, usage | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, mipmapped);
 
         ImmediateSubmit([&](VkCommandBuffer command) {
             vkutil::TransitionImage(command, newImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
