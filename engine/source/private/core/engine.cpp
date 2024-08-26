@@ -45,7 +45,7 @@ namespace lumina
             const float frameTime = elapsed / 1000.0f;            
             previousTime           = currentTime;
 
-            Log::Trace("Engine::Run {}s", deltaTime);
+            //Log::Trace("Engine::Run {}s", deltaTime);
             while (SDL_PollEvent(&e) != 0)
             {
                 renderer->Run();

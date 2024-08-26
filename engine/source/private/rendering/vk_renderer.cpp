@@ -624,7 +624,8 @@ namespace lumina
         std::vector<DescriptorAllocatorGrowable::PoolSizeRatio> sizes =
             {
             { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1},
-            {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1 }
+            { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1 },
+               { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1}
             };
 
         globalDescriptorAllocator.InitializePool(device, 10, sizes);
@@ -651,6 +652,7 @@ namespace lumina
         writer.WriteImage(0, drawImage.imageView, VK_NULL_HANDLE, VK_IMAGE_LAYOUT_GENERAL, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
         writer.UpdateSet(device, drawImageDescriptor);
 
+        writer = {};
         writer.WriteImage(0, drawImage.imageView, defaultSamplerLinear, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
         writer.UpdateSet(device, imguiImageDescriptor);
 
