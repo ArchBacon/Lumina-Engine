@@ -190,7 +190,7 @@ namespace lumina
         VkExtent2D drawExtent;
         VkExtent2D maxMonitorExtent;
         
-        VkExtent2D windowExtent {1080, 720};
+        VkExtent2D windowExtent {1280, 720};
         SDL_Window* window {nullptr};
         bool running {true};
         bool stopRendering {false};
@@ -212,6 +212,7 @@ namespace lumina
         AllocatedImage CreateImage(void* data, VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false);
         void DestroyImage(const AllocatedImage& image);
 
+        void RebuildDrawImage(VkExtent2D newExtent);
         
         VkFence immediateFence {};
         VkCommandBuffer immediateCommandBuffer {};

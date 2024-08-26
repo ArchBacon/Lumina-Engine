@@ -13,6 +13,7 @@
 #include "imgui/include/imgui_impl_vulkan.h"
 
 #define VMA_IMPLEMENTATION
+#include "imgui_internal.h"
 #include "vk_pipelines.hpp"
 
 #include <glm/ext/matrix_clip_space.hpp>
@@ -81,9 +82,8 @@ namespace lumina
     {
         SDL_Init(SDL_INIT_VIDEO);
 
-        auto windowFlags = static_cast<SDL_WindowFlags>(SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);
+        auto windowFlags = static_cast<SDL_WindowFlags>(SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_MAXIMIZED);
         window = SDL_CreateWindow("Lumina Engine", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, windowExtent.width, windowExtent.height, windowFlags);
-
         SDL_DisplayMode current;
         if (SDL_GetCurrentDisplayMode(0, &current) != 0)
         {
@@ -112,8 +112,7 @@ namespace lumina
         mainDeletionQueue.PushFunction([&]() {
             vkDestroySampler(device, defaultSamplerNearest, nullptr);
             vkDestroySampler(device, defaultSamplerLinear, nullptr);
-        });
-        
+        });        
         
         InitDescriptors();
         InitPipelines();
@@ -190,8 +189,9 @@ namespace lumina
         ImGui::End();*/
 
         //Enable Docking Space
-        ImGui::DockSpaceOverViewport();       
-
+        //ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);       
+        ImGui::DockSpaceOverViewport();
+        
         ImGui::Begin("Render Stats");
         ImGui::Text("FPS: %f", 1000.0f / stats.frameTime);
         ImGui::Text("Frame Time : %f ms", stats.frameTime);
@@ -206,8 +206,20 @@ namespace lumina
         }
         ImGui::End();
 
-        ImGui::Begin("Vulkan Renderer");
-        ImGui::Image((void*)(intptr_t)imguiImageDescriptor, ImGui::GetContentRegionAvail());
+        ImGui::Begin("Vulkan Renderer");     
+
+        ImVec2 windowSize = ImGui::GetContentRegionAvail();
+        float aspectRatio = static_cast<float>(drawImage.imageExtent.width) / static_cast<float>(drawImage.imageExtent.height);
+ 
+        ImVec2 imageSize;
+        if (windowSize.x / aspectRatio <= windowSize.y) {
+            imageSize.x = windowSize.x;
+            imageSize.y = windowSize.x / aspectRatio;
+        } else {
+            imageSize.x = windowSize.y * aspectRatio;
+            imageSize.y = windowSize.y;
+        }
+        ImGui::Image(imguiImageDescriptor, imageSize);        
         ImGui::End();
         
         ImGui::ShowDemoWindow();
@@ -258,6 +270,8 @@ namespace lumina
         vkutil::CopyImageToImage(command, drawImage.image, swapchainImages[swapchainImageIndex], drawExtent, swapchainExtent);
 
         vkutil::TransitionImage(command, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+
+        //Transition Image for ImGUI Window Draw.
         vkutil::TransitionImage(command, drawImage.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL);
         vkutil::TransitionImage(command, drawImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
@@ -277,7 +291,7 @@ namespace lumina
         const VkSubmitInfo2 submit = vkinit::SubmitInfo(&commandInfo, &signalInfo, &waitInfo);
 
         VK_CHECK(vkQueueSubmit2(graphicsQueue, 1, &submit, GetCurrentFrame().renderFence));
-
+        
         VkPresentInfoKHR presentInfo {};
         presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
         presentInfo.pNext = nullptr;
@@ -297,7 +311,6 @@ namespace lumina
 
         ++frameNumber;
     }
-
     void VulkanRenderer::DrawBackground(VkCommandBuffer command)
     {
         ComputeEffect& effect = backgroundEffects[currentBackgroundEffect];
@@ -919,7 +932,7 @@ namespace lumina
         windowExtent.height = height;
         
         CreateSwapchain(windowExtent.width, windowExtent.height);
-
+        RebuildDrawImage(windowExtent);
         resized = false;
     }
 
@@ -1007,6 +1020,43 @@ namespace lumina
     {
         vkDestroyImageView(device, image.imageView, nullptr);
         vmaDestroyImage(allocator, image.image, image.allocation);
+    }
+    void VulkanRenderer::RebuildDrawImage(VkExtent2D newExtent)
+    {
+        vkDestroyImageView(device, drawImage.imageView, nullptr);
+        vmaDestroyImage(allocator, drawImage.image, drawImage.allocation);
+
+        VkExtent3D drawImageExtent = {newExtent.width, newExtent.height, 1};
+
+        drawImage.imageFormat = VK_FORMAT_R16G16B16A16_SFLOAT;
+        drawImage.imageExtent = drawImageExtent;
+
+        VkImageUsageFlags drawImageUsages = VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
+                                            VK_IMAGE_USAGE_TRANSFER_DST_BIT |
+                                            VK_IMAGE_USAGE_STORAGE_BIT |
+                                            VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
+                                            VK_IMAGE_USAGE_SAMPLED_BIT;
+
+        VkImageCreateInfo rimgInfo = vkinit::ImageCreateInfo(drawImage.imageFormat, drawImageUsages, drawImage.imageExtent);
+
+        VmaAllocationCreateInfo rimgAllocationInfo {};
+        rimgAllocationInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+        rimgAllocationInfo.requiredFlags = static_cast<VkMemoryPropertyFlags>(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+        vmaCreateImage(allocator, &rimgInfo, &rimgAllocationInfo, &drawImage.image, &drawImage.allocation, nullptr);
+
+        VkImageViewCreateInfo viewInfo = vkinit::ImageviewCreateInfo(drawImage.imageFormat, drawImage.image, VK_IMAGE_ASPECT_COLOR_BIT);
+
+        VK_CHECK(vkCreateImageView(device, &viewInfo, nullptr, &drawImage.imageView));
+
+        DescriptorWriter writer{};
+        writer.WriteImage(0, drawImage.imageView, VK_NULL_HANDLE, VK_IMAGE_LAYOUT_GENERAL, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+        writer.UpdateSet(device, drawImageDescriptor);
+
+        writer = {};
+        writer.WriteImage(0, drawImage.imageView, defaultSamplerLinear, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+        writer.UpdateSet(device, imguiImageDescriptor);
+
     }
     GPUMeshBuffers VulkanRenderer::UploadMesh(tcb::span<uint32_t> indices, tcb::span<Vertex> vertices)
     {
