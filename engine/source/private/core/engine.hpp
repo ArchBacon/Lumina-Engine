@@ -1,6 +1,7 @@
 ﻿#pragma once
 
 #include "core/types.hpp"
+
 #include <memory>
 
 struct SDL_Window;
@@ -27,6 +28,7 @@ namespace lumina
         {
             return *fileIO;
         }
+
         [[nodiscard]] VulkanRenderer& Renderer() const
         {
             return *renderer;

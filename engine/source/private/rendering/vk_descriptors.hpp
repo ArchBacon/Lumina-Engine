@@ -1,7 +1,7 @@
 ﻿#pragma once
 
-#include "vk_types.hpp"
 #include "core/span.hpp"
+#include "vk_types.hpp"
 
 struct DescriptorLayoutBuilder
 {
@@ -50,8 +50,7 @@ private:
     std::vector<PoolSizeRatio> ratios;
     std::vector<VkDescriptorPool> fullPools;
     std::vector<VkDescriptorPool> readyPools;
-    uint32_t setsPerPool{};
-    
+    uint32_t setsPerPool {};
 };
 
 struct DescriptorWriter

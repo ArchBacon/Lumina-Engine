@@ -2,18 +2,19 @@
 
 #include "vk_descriptors.hpp"
 #include "vk_types.hpp"
-#include <unordered_map>
+
 #include <filesystem>
+#include <unordered_map>
 
 namespace lumina
 {
     class VulkanRenderer;
-    
+
     struct GLTFMaterial
     {
         MaterialInstance data;
     };
-    
+
     struct GeometrySurface
     {
         uint32_t startIndex;
@@ -30,7 +31,7 @@ namespace lumina
         GPUMeshBuffers buffers;
     };
 
-    struct LoadedGLTF : public  IRenderable
+    struct LoadedGLTF : public IRenderable
     {
     public:
         std::unordered_map<std::string, std::shared_ptr<MeshAsset>> meshes;
@@ -45,14 +46,16 @@ namespace lumina
         AllocatedBuffer materialDataBuffer;
         VulkanRenderer* creator;
 
-        ~LoadedGLTF() { ClearAll(); }
+        ~LoadedGLTF()
+        {
+            ClearAll();
+        }
 
         void Draw(const glm::mat4& topMatrix, DrawContext& context) override;
 
     private:
         void ClearAll();
-        
     };
-    
+
     std::optional<std::shared_ptr<LoadedGLTF>> LoadGLTF(VulkanRenderer* renderer, std::string_view path);
-}
+} // namespace lumina

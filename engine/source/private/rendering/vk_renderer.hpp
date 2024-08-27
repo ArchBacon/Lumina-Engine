@@ -1,14 +1,15 @@
 ﻿#pragma once
+#include "camera.hpp"
+#include "core/types.hpp"
 #include "vk_descriptors.hpp"
 #include "vk_loader.hpp"
-#include "core/types.hpp"
-#include <memory>
-#include <vkbootstrap/VkBootstrap.h>
+#include "vk_types.hpp"
+
 #include <deque>
 #include <functional>
+#include <memory>
+#include <vkbootstrap/VkBootstrap.h>
 #include <vma/vk_mem_alloc.h>
-#include "vk_types.hpp"
-#include "camera.hpp"
 
 struct SDL_Window;
 
@@ -34,7 +35,7 @@ namespace lumina
             deletors.clear();
         }
     };
-    
+
     struct FrameData
     {
         VkCommandPool commandPool {};
@@ -43,7 +44,7 @@ namespace lumina
         VkSemaphore renderSemaphore {};
         VkFence renderFence {};
         DeletionQueue deletionQueue {};
-        std::unique_ptr<DescriptorAllocatorGrowable> frameDescriptors{};
+        std::unique_ptr<DescriptorAllocatorGrowable> frameDescriptors {};
     };
 
     struct ComputePushConstants
@@ -102,7 +103,8 @@ namespace lumina
         void BuildPipelines(VulkanRenderer* renderer);
         void ClearResources(VkDevice device) const;
 
-        MaterialInstance WriteMaterial(VkDevice device, MaterialPass pass, const MaterialResources& resources, DescriptorAllocatorGrowable& descriptorAllocator);
+        MaterialInstance
+            WriteMaterial(VkDevice device, MaterialPass pass, const MaterialResources& resources, DescriptorAllocatorGrowable& descriptorAllocator);
     };
 
     struct MeshNode : public Node
@@ -114,21 +116,20 @@ namespace lumina
 
     struct RendererStats
     {
-        float frameTime{};
-        float sceneUpdateTime{};
-        float drawTime{};
-        int triangleCount{};
-        int drawCallCount{};
+        float frameTime {};
+        float sceneUpdateTime {};
+        float drawTime {};
+        int triangleCount {};
+        int drawCallCount {};
     };
 
     constexpr uint8_t FRAME_OVERLAP = 2;
-    
+
     class VulkanRenderer
     {
         friend class Engine;
-        
-    public:
 
+    public:
         VulkanRenderer();
         ~VulkanRenderer();
 
@@ -136,7 +137,7 @@ namespace lumina
         VulkanRenderer(VulkanRenderer&&)                 = delete;
         VulkanRenderer& operator=(const VulkanRenderer&) = delete;
         VulkanRenderer& operator=(VulkanRenderer&&)      = delete;
-        
+
         VkInstance instance {};
         VkDebugUtilsMessengerEXT debugMessenger {};
         VkPhysicalDevice chosenGPU {};
@@ -145,7 +146,7 @@ namespace lumina
         VkSwapchainKHR swapchain {};
         VkFormat swapchainImageFormat {};
 
-        float deltaTime{};
+        float deltaTime {};
 
         std::vector<VkImage> swapchainImages {};
         std::vector<VkImageView> swapchainImageViews {};
@@ -162,20 +163,20 @@ namespace lumina
         DescriptorAllocatorGrowable globalDescriptorAllocator {};
         VkDescriptorSet drawImageDescriptor {};
         VkDescriptorSet imguiImageDescriptor {};
-        
+
         VkDescriptorSetLayout drawImageDescriptorLayout {};
         VkDescriptorSetLayout gpuSceneDataDescriptorLayout {};
         VkDescriptorSetLayout imguiImageDescriptorLayout {};
-        
+
         VkPipeline gradientPipeline {};
         VkPipelineLayout gradientPipelineLayout {};
-        
+
         std::vector<ComputeEffect> backgroundEffects;
         int currentBackgroundEffect {0};
-        
+
         //Draw Resources
         AllocatedImage drawImage;
-        AllocatedImage depthImage;      
+        AllocatedImage depthImage;
 
         //Textures
         AllocatedImage whiteImage;
@@ -185,18 +186,18 @@ namespace lumina
 
         VkSampler defaultSamplerLinear;
         VkSampler defaultSamplerNearest;
-        
+
         VkExtent2D drawExtent;
         VkExtent2D maxMonitorExtent;
-        
+
         VkExtent2D windowExtent {1280, 720};
         SDL_Window* window {nullptr};
         bool running {true};
         bool stopRendering {false};
         bool resized {false};
 
-        bool enableOpaqueSorting{false};
-        bool enableCPUFrustumCulling{false};
+        bool enableOpaqueSorting {false};
+        bool enableCPUFrustumCulling {false};
 
         void Initialize();
         void Run();
@@ -206,18 +207,18 @@ namespace lumina
         void ImmediateSubmit(std::function<void(VkCommandBuffer cmd)>&& function);
         GPUMeshBuffers UploadMesh(tcb::span<uint32_t> indices, tcb::span<Vertex> vertices);
         void UpdateScene();
-      
+
         AllocatedImage CreateImage(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false) const;
         AllocatedImage CreateImage(const void* data, VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false);
         void DestroyImage(const AllocatedImage& image) const;
 
         void RebuildDrawImage(VkExtent2D newExtent);
-        
+
         VkFence immediateFence {};
         VkCommandBuffer immediateCommandBuffer {};
         VkCommandPool immediateCommandPool {};
 
-        GPUSceneData sceneData{};
+        GPUSceneData sceneData {};
 
         GLTFMaterial defaultData;
         GLTFMetallicRoughness metallicRoughnessMaterial;
@@ -240,7 +241,7 @@ namespace lumina
         void InitImGUI();
 
         void InitDefaultData();
-        
+
         void DrawBackground(VkCommandBuffer command);
         void DrawGeometry(VkCommandBuffer command);
         void DrawImGui(VkCommandBuffer command, VkImageView targetImageView);
@@ -248,10 +249,10 @@ namespace lumina
         void CreateSwapchain(uint32_t width, uint32_t height);
         void ResizeSwapchain();
         void DestroySwapchain() const;
-        
+
         FrameData& GetCurrentFrame()
         {
             return frames[frameNumber % FRAME_OVERLAP];
-        }    
+        }
     };
-}
+} // namespace lumina

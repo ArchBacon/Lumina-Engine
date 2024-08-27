@@ -7,7 +7,7 @@ namespace lumina
     namespace vkutil
     {
         bool LoadShaderModule(const char* filePath, VkDevice device, VkShaderModule* outShaderModule);
-    };
+    }; // namespace vkutil
 
     class PipelineBuilder
     {
@@ -23,7 +23,10 @@ namespace lumina
         VkPipelineRenderingCreateInfo renderingCreateInfo {};
         VkFormat colorAttachmentFormat {VK_FORMAT_UNDEFINED};
 
-        PipelineBuilder() { Clear(); }
+        PipelineBuilder()
+        {
+            Clear();
+        }
 
         void Clear();
 
@@ -40,7 +43,5 @@ namespace lumina
         void SetDepthFormat(VkFormat format);
         void DisableDepthTest();
         void EnableDepthTest(bool depthWriteEnable, VkCompareOp compareOp);
-        
-        
     };
-}
+} // namespace lumina
