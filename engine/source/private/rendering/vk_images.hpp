@@ -12,4 +12,4 @@ namespace lumina
 
         void GenerateMipMaps(VkCommandBuffer command, VkImage image, VkExtent2D imageSize);
     } // namespace vkutil
-}
+} // namespace lumina

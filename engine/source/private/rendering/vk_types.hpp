@@ -19,17 +19,16 @@
 
 namespace lumina
 {
-    #define VK_CHECK(x)                                                               \
-        do                                                                            \
-        {                                                                             \
+#define VK_CHECK(x)                                                               \
+    do                                                                            \
+    {                                                                             \
         VkResult err = x;                                                         \
         if (err)                                                                  \
         {                                                                         \
-        lumina::Log::Info("Detected Vulkan error: {}", string_VkResult(err)); \
-        abort();                                                              \
+            lumina::Log::Info("Detected Vulkan error: {}", string_VkResult(err)); \
+            abort();                                                              \
         }                                                                         \
-        } while (0)
-
+    } while (0)
 
     struct AllocatedImage
     {
@@ -87,7 +86,6 @@ namespace lumina
         MaterialPipeline* pipeline;
         VkDescriptorSet materialSet;
         MaterialPass passType;
-        
     };
 
     struct Bounds
@@ -145,5 +143,5 @@ namespace lumina
             }
         }
     };
-    
-}
+
+} // namespace lumina

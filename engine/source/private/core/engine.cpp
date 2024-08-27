@@ -3,12 +3,11 @@
 #include "../rendering/vk_renderer.hpp"
 #include "core/fileio.hpp"
 #include "core/log.hpp"
-
-#include <chrono>
-
-#include <imgui/include/imgui.h>
 #include "imgui/include/imgui_impl_sdl2.h"
 #include "imgui/include/imgui_impl_vulkan.h"
+
+#include <chrono>
+#include <imgui/include/imgui.h>
 #include <SDL/SDL.h>
 
 lumina::Engine gEngine;
@@ -40,12 +39,12 @@ namespace lumina
         while (running)
         {
             const auto currentTime = std::chrono::high_resolution_clock::now();
-            const float elapsed  = static_cast<float>(std::chrono::duration_cast<std::chrono::microseconds>(currentTime - previousTime).count());
-            const float deltaTime = elapsed / 1000000.0f;
-            const float frameTime = elapsed / 1000.0f;            
+            const float elapsed    = static_cast<float>(std::chrono::duration_cast<std::chrono::microseconds>(currentTime - previousTime).count());
+            const float deltaTime  = elapsed / 1000000.0f;
+            const float frameTime  = elapsed / 1000.0f;
             previousTime           = currentTime;
 
-            Log::Trace("Engine::Run {}s", deltaTime);
+            //Log::Trace("Engine::Run {}s", deltaTime);
             while (SDL_PollEvent(&e) != 0)
             {
                 renderer->Run();
@@ -81,14 +80,12 @@ namespace lumina
                 // Throttle the speed to avoid the endless spinning
                 std::this_thread::sleep_for(std::chrono::milliseconds(100));
                 continue;
-            }           
-            renderer->deltaTime = deltaTime;
+            }
+            renderer->deltaTime       = deltaTime;
             renderer->stats.frameTime = frameTime;
             renderer->Draw();
         }
     }
 
-    void Engine::Shutdown()
-    {
-    }
+    void Engine::Shutdown() {}
 } // namespace lumina
