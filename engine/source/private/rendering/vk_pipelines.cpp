@@ -46,7 +46,7 @@ namespace lumina
         renderingCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
         shaderStages.clear();
     }
-    VkPipeline PipelineBuilder::BuildPipeline(VkDevice device)
+    VkPipeline PipelineBuilder::BuildPipeline(VkDevice device) const
     {
         VkPipelineViewportStateCreateInfo viewportState {};
         viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;

@@ -100,7 +100,7 @@ namespace lumina
         DescriptorWriter writer;
 
         void BuildPipelines(VulkanRenderer* renderer);
-        void ClearResources(VkDevice device);
+        void ClearResources(VkDevice device) const;
 
         MaterialInstance WriteMaterial(VkDevice device, MaterialPass pass, const MaterialResources& resources, DescriptorAllocatorGrowable& descriptorAllocator);
     };
@@ -175,8 +175,7 @@ namespace lumina
         
         //Draw Resources
         AllocatedImage drawImage;
-        AllocatedImage depthImage;
-        AllocatedImage imguiImage;
+        AllocatedImage depthImage;      
 
         //Textures
         AllocatedImage whiteImage;
@@ -208,9 +207,9 @@ namespace lumina
         GPUMeshBuffers UploadMesh(tcb::span<uint32_t> indices, tcb::span<Vertex> vertices);
         void UpdateScene();
       
-        AllocatedImage CreateImage(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false);
-        AllocatedImage CreateImage(void* data, VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false);
-        void DestroyImage(const AllocatedImage& image);
+        AllocatedImage CreateImage(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false) const;
+        AllocatedImage CreateImage(const void* data, VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false);
+        void DestroyImage(const AllocatedImage& image) const;
 
         void RebuildDrawImage(VkExtent2D newExtent);
         
@@ -248,7 +247,7 @@ namespace lumina
 
         void CreateSwapchain(uint32_t width, uint32_t height);
         void ResizeSwapchain();
-        void DestroySwapchain();
+        void DestroySwapchain() const;
         
         FrameData& GetCurrentFrame()
         {

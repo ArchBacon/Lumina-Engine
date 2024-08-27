@@ -9,7 +9,7 @@ struct DescriptorLayoutBuilder
 
     void AddBinding(uint32_t binding, VkDescriptorType type);
     void Clear();
-    VkDescriptorSetLayout Build(VkDevice device, VkShaderStageFlags shadeStages, void* pNext = nullptr, VkDescriptorSetLayoutCreateFlags flags = 0);
+    VkDescriptorSetLayout Build(VkDevice device, VkShaderStageFlags shadeStages, const void* pNext = nullptr, VkDescriptorSetLayoutCreateFlags flags = 0);
 };
 
 struct DescriptorAllocator
@@ -23,10 +23,10 @@ struct DescriptorAllocator
     VkDescriptorPool pool;
 
     void InitializePool(VkDevice device, uint32_t maxSets, tcb::span<PoolSizeRatio> poolRatios);
-    void ClearPool(VkDevice device);
-    void DestroyPool(VkDevice device);
+    void ClearPool(VkDevice device) const;
+    void DestroyPool(VkDevice device) const;
 
-    VkDescriptorSet Allocate(VkDevice device, VkDescriptorSetLayout layout);
+    VkDescriptorSet Allocate(VkDevice device, VkDescriptorSetLayout layout) const;
 };
 
 struct DescriptorAllocatorGrowable
@@ -41,11 +41,11 @@ struct DescriptorAllocatorGrowable
     void ClearPools(VkDevice device);
     void DestroyPool(VkDevice device);
 
-    VkDescriptorSet Allocate(VkDevice device, VkDescriptorSetLayout layout, void* pNext = nullptr);
+    VkDescriptorSet Allocate(VkDevice device, VkDescriptorSetLayout layout, const void* pNext = nullptr);
 
 private:
     VkDescriptorPool GetPool(VkDevice device);
-    VkDescriptorPool CreatePool(VkDevice device, uint32_t setCount, tcb::span<PoolSizeRatio> poolRatios);
+    static VkDescriptorPool CreatePool(VkDevice device, uint32_t setCount, tcb::span<PoolSizeRatio> poolRatios);
 
     std::vector<PoolSizeRatio> ratios;
     std::vector<VkDescriptorPool> fullPools;

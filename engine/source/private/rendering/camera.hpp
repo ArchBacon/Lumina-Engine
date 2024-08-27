@@ -14,8 +14,8 @@ namespace lumina
         float pitch{};
         float yaw{};
 
-        glm::mat4 GetViewMatrix();
-        glm::mat4 GetRotationmatrix();
+        glm::mat4 GetViewMatrix() const;
+        glm::mat4 GetRotationMatrix() const;
 
         void ProcessSDLEvent(const SDL_Event& event);
         void Update(float deltaTime);
