@@ -14,7 +14,7 @@ void DescriptorLayoutBuilder::Clear()
 {
     bindings.clear();
 }
-VkDescriptorSetLayout DescriptorLayoutBuilder::Build(VkDevice device, VkShaderStageFlags shadeStages, void* pNext, VkDescriptorSetLayoutCreateFlags flags)
+VkDescriptorSetLayout DescriptorLayoutBuilder::Build(VkDevice device, VkShaderStageFlags shadeStages, const void* pNext, VkDescriptorSetLayoutCreateFlags flags)
 {
     for (auto& binding : bindings)
     {
@@ -50,15 +50,15 @@ void DescriptorAllocator::InitializePool(VkDevice device, uint32_t maxSets, tcb:
 
     vkCreateDescriptorPool(device, &poolInfo, nullptr, &pool);
 }
-void DescriptorAllocator::ClearPool(VkDevice device)
+void DescriptorAllocator::ClearPool(VkDevice device) const
 {
     vkResetDescriptorPool(device, pool, 0);
 }
-void DescriptorAllocator::DestroyPool(VkDevice device)
+void DescriptorAllocator::DestroyPool(VkDevice device) const
 {
     vkDestroyDescriptorPool(device, pool, nullptr);
 }
-VkDescriptorSet DescriptorAllocator::Allocate(VkDevice device, VkDescriptorSetLayout layout)
+VkDescriptorSet DescriptorAllocator::Allocate(VkDevice device, VkDescriptorSetLayout layout) const
 {
     VkDescriptorSetAllocateInfo allocInfo {};
     allocInfo.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
@@ -113,7 +113,7 @@ void DescriptorAllocatorGrowable::DestroyPool(VkDevice device)
     }
     fullPools.clear();
 }
-VkDescriptorSet DescriptorAllocatorGrowable::Allocate(VkDevice device, VkDescriptorSetLayout layout, void* pNext)
+VkDescriptorSet DescriptorAllocatorGrowable::Allocate(VkDevice device, VkDescriptorSetLayout layout, const void* pNext)
 {
     VkDescriptorPool poolToUse = GetPool(device);
 

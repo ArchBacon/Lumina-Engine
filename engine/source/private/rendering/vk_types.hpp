@@ -1,7 +1,6 @@
 ﻿#pragma once
 
 #include "core/types.hpp"
-
 #include <array>
 #include <core/log.hpp>
 #include <deque>

@@ -13,6 +13,7 @@
 #include "imgui/include/imgui_impl_vulkan.h"
 
 #define VMA_IMPLEMENTATION
+#include "imgui_internal.h"
 #include "vk_pipelines.hpp"
 
 #include <glm/ext/matrix_clip_space.hpp>
@@ -81,9 +82,8 @@ namespace lumina
     {
         SDL_Init(SDL_INIT_VIDEO);
 
-        auto windowFlags = static_cast<SDL_WindowFlags>(SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);
-        window = SDL_CreateWindow("Lumina Engine", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, windowExtent.width, windowExtent.height, windowFlags);
-
+        auto windowFlags = static_cast<SDL_WindowFlags>(SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_MAXIMIZED);
+        window = SDL_CreateWindow("Lumina Engine", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, static_cast<int>(windowExtent.width), static_cast<int>(windowExtent.height), windowFlags);
         SDL_DisplayMode current;
         if (SDL_GetCurrentDisplayMode(0, &current) != 0)
         {
@@ -97,9 +97,26 @@ namespace lumina
         InitSwapchain();
         InitCommands();
         InitSyncStructures();
+
+        VkSamplerCreateInfo samplerInfo{};
+        samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+        samplerInfo.magFilter = VK_FILTER_NEAREST;
+        samplerInfo.minFilter = VK_FILTER_NEAREST;
+
+        vkCreateSampler(device, &samplerInfo, nullptr, &defaultSamplerNearest);
+
+        samplerInfo.magFilter = VK_FILTER_LINEAR;
+        samplerInfo.minFilter = VK_FILTER_LINEAR;
+        vkCreateSampler(device, &samplerInfo, nullptr, &defaultSamplerLinear);
+
+        mainDeletionQueue.PushFunction([&]() {
+            vkDestroySampler(device, defaultSamplerNearest, nullptr);
+            vkDestroySampler(device, defaultSamplerLinear, nullptr);
+        });        
+        
         InitDescriptors();
         InitPipelines();
-        InitImGUI();
+        InitImGUI();        
         InitDefaultData();
     }
     void VulkanRenderer::Run()
@@ -171,6 +188,10 @@ namespace lumina
         }
         ImGui::End();*/
 
+        //Enable Docking Space
+        //ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);       
+        ImGui::DockSpaceOverViewport();
+        
         ImGui::Begin("Render Stats");
         ImGui::Text("FPS: %f", 1000.0f / stats.frameTime);
         ImGui::Text("Frame Time : %f ms", stats.frameTime);
@@ -184,8 +205,24 @@ namespace lumina
             enableOpaqueSorting = true;
         }
         ImGui::End();
+
+        ImGui::Begin("Vulkan Renderer");     
+
+        ImVec2 windowSize = ImGui::GetContentRegionAvail();
+        float aspectRatio = static_cast<float>(drawImage.imageExtent.width) / static_cast<float>(drawImage.imageExtent.height);
+ 
+        ImVec2 imageSize;
+        if (windowSize.x / aspectRatio <= windowSize.y) {
+            imageSize.x = windowSize.x;
+            imageSize.y = windowSize.x / aspectRatio;
+        } else {
+            imageSize.x = windowSize.y * aspectRatio;
+            imageSize.y = windowSize.y;
+        }
+        ImGui::Image(imguiImageDescriptor, imageSize);        
+        ImGui::End();
         
-        //ImGui::ShowDemoWindow();
+        ImGui::ShowDemoWindow();
         ImGui::Render();
 
         UpdateScene();
@@ -233,6 +270,10 @@ namespace lumina
         vkutil::CopyImageToImage(command, drawImage.image, swapchainImages[swapchainImageIndex], drawExtent, swapchainExtent);
 
         vkutil::TransitionImage(command, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+
+        //Transition Image for ImGUI Window Draw.
+        vkutil::TransitionImage(command, drawImage.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL);
+        vkutil::TransitionImage(command, drawImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
         
         DrawImGui(command, swapchainImageViews[swapchainImageIndex]);
         
@@ -248,7 +289,7 @@ namespace lumina
         const VkSubmitInfo2 submit = vkinit::SubmitInfo(&commandInfo, &signalInfo, &waitInfo);
 
         VK_CHECK(vkQueueSubmit2(graphicsQueue, 1, &submit, GetCurrentFrame().renderFence));
-
+        
         VkPresentInfoKHR presentInfo {};
         presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
         presentInfo.pNext = nullptr;
@@ -268,7 +309,6 @@ namespace lumina
 
         ++frameNumber;
     }
-
     void VulkanRenderer::DrawBackground(VkCommandBuffer command)
     {
         ComputeEffect& effect = backgroundEffects[currentBackgroundEffect];
@@ -500,6 +540,8 @@ namespace lumina
         drawImageUsages |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
         drawImageUsages |= VK_IMAGE_USAGE_STORAGE_BIT;
         drawImageUsages |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+        drawImageUsages |= VK_IMAGE_USAGE_SAMPLED_BIT;
+
 
         VkImageCreateInfo rimgInfo = vkinit::ImageCreateInfo(drawImage.imageFormat, drawImageUsages, drawImage.imageExtent);
 
@@ -525,13 +567,13 @@ namespace lumina
         VkImageViewCreateInfo dviewInfo = vkinit::ImageviewCreateInfo(depthImage.imageFormat, depthImage.image, VK_IMAGE_ASPECT_DEPTH_BIT);
 
         VK_CHECK(vkCreateImageView(device, &dviewInfo, nullptr, &depthImage.imageView));
-
+        
         mainDeletionQueue.PushFunction([&]() {
             vkDestroyImageView(device, drawImage.imageView, nullptr);
             vmaDestroyImage(allocator, drawImage.image, drawImage.allocation);
 
             vkDestroyImageView(device, depthImage.imageView, nullptr);
-            vmaDestroyImage(allocator, depthImage.image, depthImage.allocation);
+            vmaDestroyImage(allocator, depthImage.image, depthImage.allocation);           
         });
     }
 
@@ -539,11 +581,11 @@ namespace lumina
     {
         VkCommandPoolCreateInfo commandPoolInfo = vkinit::CommandPoolCreateInfo(graphicsQueueFamily, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
 
-        for (int i = 0; i < FRAME_OVERLAP; i++)
+        for (auto& frame : frames)
         {
-            VK_CHECK(vkCreateCommandPool(device, &commandPoolInfo, nullptr, &frames[i].commandPool));
-            VkCommandBufferAllocateInfo commandAllocateInfo = vkinit::CommandBufferAllocateInfo(frames[i].commandPool, 1);
-            VK_CHECK(vkAllocateCommandBuffers(device, &commandAllocateInfo, &frames[i].commandBuffer));
+            VK_CHECK(vkCreateCommandPool(device, &commandPoolInfo, nullptr, &frame.commandPool));
+            VkCommandBufferAllocateInfo commandAllocateInfo = vkinit::CommandBufferAllocateInfo(frame.commandPool, 1);
+            VK_CHECK(vkAllocateCommandBuffers(device, &commandAllocateInfo, &frame.commandBuffer));
         }
 
         VK_CHECK(vkCreateCommandPool(device, &commandPoolInfo, nullptr, &immediateCommandPool));
@@ -560,12 +602,12 @@ namespace lumina
         VkFenceCreateInfo fenceCreateInfo = vkinit::FenceCreateInfo(VK_FENCE_CREATE_SIGNALED_BIT);
         VkSemaphoreCreateInfo semaphoreCreateInfo = vkinit::SemaphoreCreateInfo();
 
-        for (int i = 0; i < FRAME_OVERLAP; i++)
+        for (auto& frame : frames)
         {
-            VK_CHECK(vkCreateFence(device, &fenceCreateInfo, nullptr, &frames[i].renderFence));
+            VK_CHECK(vkCreateFence(device, &fenceCreateInfo, nullptr, &frame.renderFence));
             
-            VK_CHECK(vkCreateSemaphore(device, &semaphoreCreateInfo, nullptr, &frames[i].swapchainSemaphore));
-            VK_CHECK(vkCreateSemaphore(device, &semaphoreCreateInfo, nullptr, &frames[i].renderSemaphore));
+            VK_CHECK(vkCreateSemaphore(device, &semaphoreCreateInfo, nullptr, &frame.swapchainSemaphore));
+            VK_CHECK(vkCreateSemaphore(device, &semaphoreCreateInfo, nullptr, &frame.renderSemaphore));
         }
 
         VK_CHECK(vkCreateFence(device, &fenceCreateInfo, nullptr, &immediateFence));
@@ -576,7 +618,8 @@ namespace lumina
         std::vector<DescriptorAllocatorGrowable::PoolSizeRatio> sizes =
             {
             { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1},
-            {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1 }
+            { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1 },
+               { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1}
             };
 
         globalDescriptorAllocator.InitializePool(device, 10, sizes);
@@ -590,21 +633,31 @@ namespace lumina
             DescriptorLayoutBuilder builder;
             builder.AddBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
             gpuSceneDataDescriptorLayout = builder.Build(device, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
-        }        
+        }
+        {
+            DescriptorLayoutBuilder builder;
+            builder.AddBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+            imguiImageDescriptorLayout = builder.Build(device, VK_SHADER_STAGE_FRAGMENT_BIT);
+        }
         drawImageDescriptor = globalDescriptorAllocator.Allocate(device, drawImageDescriptorLayout);
-
+        imguiImageDescriptor = globalDescriptorAllocator.Allocate(device, imguiImageDescriptorLayout);
+        
         DescriptorWriter writer{};
         writer.WriteImage(0, drawImage.imageView, VK_NULL_HANDLE, VK_IMAGE_LAYOUT_GENERAL, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+        writer.UpdateSet(device, drawImageDescriptor);
 
-        writer.UpdateSet(device, drawImageDescriptor);       
+        writer = {};
+        writer.WriteImage(0, drawImage.imageView, defaultSamplerLinear, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+        writer.UpdateSet(device, imguiImageDescriptor);
 
         mainDeletionQueue.PushFunction([&]() {
             globalDescriptorAllocator.DestroyPool(device);
             vkDestroyDescriptorSetLayout(device, drawImageDescriptorLayout, nullptr);
             vkDestroyDescriptorSetLayout(device, gpuSceneDataDescriptorLayout, nullptr);
+            vkDestroyDescriptorSetLayout(device, imguiImageDescriptorLayout, nullptr);
         });
 
-        for (int i = 0; i < FRAME_OVERLAP; i++)
+        for (auto& frame : frames)
         {
             std::vector<DescriptorAllocatorGrowable::PoolSizeRatio> frameSizes =
                 {
@@ -614,11 +667,11 @@ namespace lumina
                     {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4},
                 };
 
-            frames[i].frameDescriptors = std::make_unique<DescriptorAllocatorGrowable>();
-            frames[i].frameDescriptors->InitializePool(device, 1000, frameSizes);
+            frame.frameDescriptors = std::make_unique<DescriptorAllocatorGrowable>();
+            frame.frameDescriptors->InitializePool(device, 1000, frameSizes);
 
-            mainDeletionQueue.PushFunction([&, i]() {
-                frames[i].frameDescriptors->DestroyPool(device);
+            mainDeletionQueue.PushFunction([&frame, this]() {
+                frame.frameDescriptors->DestroyPool(device);
             });
             
         }
@@ -737,6 +790,9 @@ namespace lumina
         ImGui_ImplVulkan_Init(&initInfo);
         ImGui_ImplVulkan_CreateFontsTexture();
 
+        ImGuiIO& io = ImGui::GetIO();
+        io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+
         mainDeletionQueue.PushFunction([this, imGUIPool]() {
             ImGui_ImplVulkan_Shutdown();
             vkDestroyDescriptorPool(device, imGUIPool, nullptr);
@@ -747,21 +803,7 @@ namespace lumina
         mainCamera.velocity = float3{0.0f};
         mainCamera.position = float3{0.0f, 0.0f, 5.0f};
         mainCamera.pitch = 0.0f;
-        mainCamera.yaw = 0.0f;        
-        
-        std::array<Vertex, 4> rectangleVertices;
-
-        rectangleVertices[0].position = {0.5f, -0.5f, 0.0f};
-        rectangleVertices[1].position = {0.5f, 0.5f, 0.0f};
-        rectangleVertices[2].position = {-0.5f, -0.5f, 0.0f};
-        rectangleVertices[3].position = {-0.5f, 0.5f, 0.0f};
-
-        rectangleVertices[0].color = { 0.0f, 0.0f, 0.0f, 1.0f};
-        rectangleVertices[1].color = { 0.5f, 0.5f, 0.5f, 1.0f};
-        rectangleVertices[2].color = { 1.0f, 0.0f, 0.0f, 1.0f};
-        rectangleVertices[3].color = { 0.0f, 1.0f, 0.0f, 1.0f};
-
-        std::array<uint32_t, 6> rectangleIndices = {0, 1, 2, 2, 1, 3};        
+        mainCamera.yaw = 0.0f;         
 
         uint32_t white = glm::packUnorm4x8(float4(1, 1, 1, 1));
         whiteImage = CreateImage(&white, VkExtent3D{1, 1, 1 }, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT);
@@ -784,7 +826,7 @@ namespace lumina
 
         errorCheckerboardImage = CreateImage(pixels.data(), VkExtent3D{16, 16, 1 }, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT);
 
-        VkSamplerCreateInfo samplerInfo{};
+        /*VkSamplerCreateInfo samplerInfo{};
         samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
         samplerInfo.magFilter = VK_FILTER_NEAREST;
         samplerInfo.minFilter = VK_FILTER_NEAREST;
@@ -793,11 +835,11 @@ namespace lumina
 
         samplerInfo.magFilter = VK_FILTER_LINEAR;
         samplerInfo.minFilter = VK_FILTER_LINEAR;
-        vkCreateSampler(device, &samplerInfo, nullptr, &defaultSamplerLinear);
+        vkCreateSampler(device, &samplerInfo, nullptr, &defaultSamplerLinear);*/
 
         mainDeletionQueue.PushFunction([&]() {
-            vkDestroySampler(device, defaultSamplerNearest, nullptr);
-            vkDestroySampler(device, defaultSamplerLinear, nullptr);
+            //vkDestroySampler(device, defaultSamplerNearest, nullptr);
+            //vkDestroySampler(device, defaultSamplerLinear, nullptr);
 
             DestroyImage(whiteImage);
             DestroyImage(greyImage);
@@ -825,7 +867,7 @@ namespace lumina
 
         defaultData.data = metallicRoughnessMaterial.WriteMaterial(device, MaterialPass::MainColor, materialResources, globalDescriptorAllocator);
         
-        std::string structure = {"assets/models/structure_mat.glb"};
+        std::string structure = {"assets/models/damaged_helmet.gltf"};
         auto structureFile = LoadGLTF(this, structure);
         assert(structureFile.has_value());
         loadedScenes["structure"] = *structureFile;
@@ -857,11 +899,11 @@ namespace lumina
         windowExtent.height = height;
         
         CreateSwapchain(windowExtent.width, windowExtent.height);
-
+        RebuildDrawImage(windowExtent);
         resized = false;
     }
 
-    void VulkanRenderer::DestroySwapchain()
+    void VulkanRenderer::DestroySwapchain() const
     {
         vkDestroySwapchainKHR(device, swapchain, nullptr);
 
@@ -870,7 +912,7 @@ namespace lumina
             vkDestroyImageView(device, imageView, nullptr);
         }
     }
-    AllocatedImage VulkanRenderer::CreateImage(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped)
+    AllocatedImage VulkanRenderer::CreateImage(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped) const
     {
         AllocatedImage newImage;
         newImage.imageFormat = format;
@@ -901,7 +943,7 @@ namespace lumina
 
         return newImage;
     }
-    AllocatedImage VulkanRenderer::CreateImage(void* data, VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped)
+    AllocatedImage VulkanRenderer::CreateImage(const void* data, VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped)
     {
         size_t dataSize = size.width * size.height * size.depth * 4;
 
@@ -909,7 +951,7 @@ namespace lumina
 
         memcpy(stagingBuffer.allocationInfo.pMappedData, data, dataSize);
 
-        AllocatedImage newImage = CreateImage(size, format, usage | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT, mipmapped);
+        AllocatedImage newImage = CreateImage(size, format, usage | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, mipmapped);
 
         ImmediateSubmit([&](VkCommandBuffer command) {
             vkutil::TransitionImage(command, newImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
@@ -941,10 +983,47 @@ namespace lumina
 
         return newImage;        
     }
-    void VulkanRenderer::DestroyImage(const AllocatedImage& image)
+    void VulkanRenderer::DestroyImage(const AllocatedImage& image) const
     {
         vkDestroyImageView(device, image.imageView, nullptr);
         vmaDestroyImage(allocator, image.image, image.allocation);
+    }
+    void VulkanRenderer::RebuildDrawImage(VkExtent2D newExtent)
+    {
+        vkDestroyImageView(device, drawImage.imageView, nullptr);
+        vmaDestroyImage(allocator, drawImage.image, drawImage.allocation);
+
+        VkExtent3D drawImageExtent = {newExtent.width, newExtent.height, 1};
+
+        drawImage.imageFormat = VK_FORMAT_R16G16B16A16_SFLOAT;
+        drawImage.imageExtent = drawImageExtent;
+
+        VkImageUsageFlags drawImageUsages = VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
+                                            VK_IMAGE_USAGE_TRANSFER_DST_BIT |
+                                            VK_IMAGE_USAGE_STORAGE_BIT |
+                                            VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
+                                            VK_IMAGE_USAGE_SAMPLED_BIT;
+
+        VkImageCreateInfo rimgInfo = vkinit::ImageCreateInfo(drawImage.imageFormat, drawImageUsages, drawImage.imageExtent);
+
+        VmaAllocationCreateInfo rimgAllocationInfo {};
+        rimgAllocationInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+        rimgAllocationInfo.requiredFlags = static_cast<VkMemoryPropertyFlags>(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+        vmaCreateImage(allocator, &rimgInfo, &rimgAllocationInfo, &drawImage.image, &drawImage.allocation, nullptr);
+
+        VkImageViewCreateInfo viewInfo = vkinit::ImageviewCreateInfo(drawImage.imageFormat, drawImage.image, VK_IMAGE_ASPECT_COLOR_BIT);
+
+        VK_CHECK(vkCreateImageView(device, &viewInfo, nullptr, &drawImage.imageView));
+
+        DescriptorWriter writer{};
+        writer.WriteImage(0, drawImage.imageView, VK_NULL_HANDLE, VK_IMAGE_LAYOUT_GENERAL, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+        writer.UpdateSet(device, drawImageDescriptor);
+
+        writer = {};
+        writer.WriteImage(0, drawImage.imageView, defaultSamplerLinear, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+        writer.UpdateSet(device, imguiImageDescriptor);
+
     }
     GPUMeshBuffers VulkanRenderer::UploadMesh(tcb::span<uint32_t> indices, tcb::span<Vertex> vertices)
     {
@@ -1073,7 +1152,7 @@ namespace lumina
         vkDestroyShaderModule(renderer->device, meshFragmentShader, nullptr);
     }
 
-    void GLTFMetallicRoughness::ClearResources(VkDevice device)
+    void GLTFMetallicRoughness::ClearResources(VkDevice device) const
     {
         vkDestroyDescriptorSetLayout(device, materialSetLayout, nullptr);
         vkDestroyPipelineLayout(device, transparentPipeline.pipelineLayout, nullptr);        

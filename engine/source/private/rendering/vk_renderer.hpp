@@ -100,7 +100,7 @@ namespace lumina
         DescriptorWriter writer;
 
         void BuildPipelines(VulkanRenderer* renderer);
-        void ClearResources(VkDevice device);
+        void ClearResources(VkDevice device) const;
 
         MaterialInstance WriteMaterial(VkDevice device, MaterialPass pass, const MaterialResources& resources, DescriptorAllocatorGrowable& descriptorAllocator);
     };
@@ -161,8 +161,11 @@ namespace lumina
         VmaAllocator allocator {};
         DescriptorAllocatorGrowable globalDescriptorAllocator {};
         VkDescriptorSet drawImageDescriptor {};
+        VkDescriptorSet imguiImageDescriptor {};
+        
         VkDescriptorSetLayout drawImageDescriptorLayout {};
         VkDescriptorSetLayout gpuSceneDataDescriptorLayout {};
+        VkDescriptorSetLayout imguiImageDescriptorLayout {};
         
         VkPipeline gradientPipeline {};
         VkPipelineLayout gradientPipelineLayout {};
@@ -172,7 +175,7 @@ namespace lumina
         
         //Draw Resources
         AllocatedImage drawImage;
-        AllocatedImage depthImage;
+        AllocatedImage depthImage;      
 
         //Textures
         AllocatedImage whiteImage;
@@ -186,7 +189,7 @@ namespace lumina
         VkExtent2D drawExtent;
         VkExtent2D maxMonitorExtent;
         
-        VkExtent2D windowExtent {1080, 720};
+        VkExtent2D windowExtent {1280, 720};
         SDL_Window* window {nullptr};
         bool running {true};
         bool stopRendering {false};
@@ -204,10 +207,11 @@ namespace lumina
         GPUMeshBuffers UploadMesh(tcb::span<uint32_t> indices, tcb::span<Vertex> vertices);
         void UpdateScene();
       
-        AllocatedImage CreateImage(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false);
-        AllocatedImage CreateImage(void* data, VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false);
-        void DestroyImage(const AllocatedImage& image);
+        AllocatedImage CreateImage(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false) const;
+        AllocatedImage CreateImage(const void* data, VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false);
+        void DestroyImage(const AllocatedImage& image) const;
 
+        void RebuildDrawImage(VkExtent2D newExtent);
         
         VkFence immediateFence {};
         VkCommandBuffer immediateCommandBuffer {};
@@ -243,7 +247,7 @@ namespace lumina
 
         void CreateSwapchain(uint32_t width, uint32_t height);
         void ResizeSwapchain();
-        void DestroySwapchain();
+        void DestroySwapchain() const;
         
         FrameData& GetCurrentFrame()
         {

@@ -6,7 +6,7 @@ namespace lumina
 {
     void Camera::Update(float deltaTime)
     {
-        glm::mat4 cameraRotation = GetRotationmatrix();
+        glm::mat4 cameraRotation = GetRotationMatrix();
         position += float3(cameraRotation * float4(velocity * speed, 0.0f) * deltaTime);
     }
 
@@ -57,14 +57,14 @@ namespace lumina
         }       
     }
 
-    glm::mat4 Camera::GetViewMatrix()
+    glm::mat4 Camera::GetViewMatrix() const
     {
         glm::mat4 cameraTranslation = glm::translate(glm::mat4(1.0f), position);
-        glm::mat4 cameraRotation = GetRotationmatrix();
+        glm::mat4 cameraRotation = GetRotationMatrix();
         return glm::inverse(cameraTranslation * cameraRotation);
     }
 
-    glm::mat4 Camera::GetRotationmatrix()
+    glm::mat4 Camera::GetRotationMatrix() const
     {
         glm::quat pitchRotation = glm::angleAxis(pitch, float3{1.0f, 0.0f, 0.0f});
         glm::quat yawRotation = glm::angleAxis(yaw, float3{0.0f, -1.0f, 0.0f,});

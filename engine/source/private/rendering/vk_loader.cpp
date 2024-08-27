@@ -30,9 +30,8 @@ namespace lumina
                     const std::string path(
                         filePath.uri.path().begin(),
                         filePath.uri.path().end()
-                        ); 
-                    unsigned char* data = stbi_load(path.c_str(), &width, &height, &nrChannels, 4);
-                    if (data)
+                        );
+                    if (unsigned char* data = stbi_load(path.c_str(), &width, &height, &nrChannels, 4))
                     {
                         VkExtent3D imageSize;
                         imageSize.width = width;
@@ -45,15 +44,14 @@ namespace lumina
                     }
                 },
                 [&](fastgltf::sources::Array& array) {
-                    unsigned char* data = stbi_load_from_memory(
+                    if (unsigned char* data = stbi_load_from_memory(
                         array.bytes.data(),
                         static_cast<int>(array.bytes.size()),
                         &width,
                         &height,
                         &nrChannels,
                         4
-                        );
-                    if (data)
+                        ))
                     {
                         VkExtent3D imageSize;
                         imageSize.width = width;
@@ -73,15 +71,14 @@ namespace lumina
                         fastgltf::visitor{                           
                             [](auto& arg) {},
                             [&](fastgltf::sources::Array& array) {
-                                unsigned char* data = stbi_load_from_memory(
+                                if (unsigned char* data = stbi_load_from_memory(
                                     array.bytes.data() + bufferView.byteOffset,
                                     static_cast<int>(bufferView.byteLength),
                                     &width,
                                     &height,
                                     &nrChannels,
                                     4
-                                    );
-                                if (data)
+                                    ))
                                 {
                                     VkExtent3D imageSize;
                                     imageSize.width = width;
@@ -376,7 +373,7 @@ namespace lumina
                     auto normals = primitives.findAttribute("NORMAL");
                     if (normals != primitives.attributes.end())
                     {
-                        fastgltf::iterateAccessorWithIndex<float3>(gltfAsset, gltfAsset.accessors[(*normals).second], [&](float3 vertex, size_t index) {
+                        fastgltf::iterateAccessorWithIndex<float3>(gltfAsset, gltfAsset.accessors[normals->second], [&](float3 vertex, size_t index) {
                             vertices[initialVertex + index].normal = vertex;
                         });
                     }
@@ -386,7 +383,7 @@ namespace lumina
                     auto uv = primitives.findAttribute("TEXCOORD_0");
                     if (uv != primitives.attributes.end())
                     {
-                        fastgltf::iterateAccessorWithIndex<float2>(gltfAsset, gltfAsset.accessors[(*uv).second], [&](float2 vertex, size_t index) {
+                        fastgltf::iterateAccessorWithIndex<float2>(gltfAsset, gltfAsset.accessors[uv->second], [&](float2 vertex, size_t index) {
                             vertices[initialVertex + index].uv_x = vertex.x;
                             vertices[initialVertex + index].uv_y = vertex.y;
                         });
@@ -397,7 +394,7 @@ namespace lumina
                     auto colors = primitives.findAttribute("COLOR_0");
                     if (colors != primitives.attributes.end())
                     {
-                        fastgltf::iterateAccessorWithIndex<float4>(gltfAsset, gltfAsset.accessors[(*colors).second], [&](float4 vertex, size_t index) {
+                        fastgltf::iterateAccessorWithIndex<float4>(gltfAsset, gltfAsset.accessors[colors->second], [&](float4 vertex, size_t index) {
                             vertices[initialVertex + index].color = vertex;
                         });
                     }
@@ -435,7 +432,7 @@ namespace lumina
             if (node.meshIndex.has_value())
             {
                 newNode = std::make_shared<MeshNode>();
-                static_cast<MeshNode*>(newNode.get())->mesh = meshes[*node.meshIndex];
+                dynamic_cast<MeshNode*>(newNode.get())->mesh = meshes[*node.meshIndex];
             }
             else
             {
@@ -445,7 +442,7 @@ namespace lumina
             nodes.push_back(newNode);
             file.nodes[node.name.c_str()];
 
-            std::visit(fastgltf::visitor {[&](fastgltf::Node::TransformMatrix matrix) {
+            std::visit(fastgltf::visitor {[&](const fastgltf::Node::TransformMatrix& matrix) {
                 memcpy(&newNode->localTransform, matrix.data(), sizeof(matrix));
             }, [&](const fastgltf::TRS& transform) {
                 float3 translation(transform.translation[0], transform.translation[1], transform.translation[2]);

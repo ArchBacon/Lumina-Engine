@@ -27,7 +27,7 @@ namespace lumina
 
         void Clear();
 
-        VkPipeline BuildPipeline(VkDevice device);
+        VkPipeline BuildPipeline(VkDevice device) const;
         void SetShaders(VkShaderModule vertexShader, VkShaderModule fragmentShader);
         void SetInputTopology(VkPrimitiveTopology topology);
         void SetPolygonMode(VkPolygonMode mode);
