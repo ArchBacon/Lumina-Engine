@@ -26,7 +26,6 @@ namespace lumina
     struct MeshAsset
     {
         std::string name;
-
         std::vector<GeometrySurface> surfaces;
         GPUMeshBuffers buffers;
     };
