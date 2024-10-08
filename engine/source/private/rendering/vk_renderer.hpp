@@ -84,14 +84,24 @@ namespace lumina
         struct MaterialConstants
         {
             float4 colorFactors;
+            float4 emissiveFactors;
             float4 metallicRoughnessFactors;
-            float4 padding[14];
+            float normalScale;
+            float occlusionStrength;
+            float padding2 [2];
+            float4 padding[12];
         };
 
         struct MaterialResources
         {
             AllocatedImage colorImage;
             VkSampler colorSampler;
+            AllocatedImage EmissiveImage;
+            VkSampler EmissiveSampler;
+            AllocatedImage normalImage;
+            VkSampler normalSampler;
+            AllocatedImage occlusionImage;
+            VkSampler occlusionSampler;
             AllocatedImage metallicRoughnessImage;
             VkSampler metallicRoughnessSampler;
             VkBuffer dataBuffer;
@@ -193,6 +203,7 @@ namespace lumina
         VkExtent2D windowExtent {1280, 720};
         SDL_Window* window {nullptr};
         bool running {true};
+        bool vsync {true};
         bool stopRendering {false};
         bool resized {false};
 

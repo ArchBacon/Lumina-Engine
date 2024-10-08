@@ -207,6 +207,10 @@ namespace lumina
         {
             enableOpaqueSorting = true;
         }
+        if (ImGui::Checkbox("VSync", &vsync))
+        {
+            resized = true;
+        }
         ImGui::End();
 
         ImGui::Begin("Vulkan Renderer");
@@ -615,6 +619,7 @@ namespace lumina
             VK_CHECK(vkAllocateCommandBuffers(device, &commandAllocateInfo, &frame.commandBuffer));
         }
 
+
         VK_CHECK(vkCreateCommandPool(device, &commandPoolInfo, nullptr, &immediateCommandPool));
         VkCommandBufferAllocateInfo commandAllocateInfo = vkinit::CommandBufferAllocateInfo(immediateCommandPool, 1);
         VK_CHECK(vkAllocateCommandBuffers(device, &commandAllocateInfo, &immediateCommandBuffer));
@@ -646,11 +651,11 @@ namespace lumina
     void VulkanRenderer::InitDescriptors()
     {
         std::vector<DescriptorAllocatorGrowable::PoolSizeRatio> sizes = {
-            {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1},
-            {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1},
-            {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1}};
+            {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 10},
+            {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 10},
+            {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 10}};
 
-        globalDescriptorAllocator.InitializePool(device, 10, sizes);
+        globalDescriptorAllocator.InitializePool(device, 100, sizes);
 
         {
             DescriptorLayoutBuilder builder;
@@ -879,6 +884,12 @@ namespace lumina
         GLTFMetallicRoughness::MaterialResources materialResources;
         materialResources.colorImage               = whiteImage;
         materialResources.colorSampler             = defaultSamplerLinear;
+        materialResources.EmissiveImage            = blackImage;
+        materialResources.EmissiveSampler          = defaultSamplerLinear;
+        materialResources.normalImage              = greyImage;
+        materialResources.normalSampler            = defaultSamplerLinear;
+        materialResources.occlusionImage           = whiteImage;
+        materialResources.occlusionSampler         = defaultSamplerLinear;
         materialResources.metallicRoughnessImage   = whiteImage;
         materialResources.metallicRoughnessSampler = defaultSamplerLinear;
 
@@ -908,7 +919,7 @@ namespace lumina
         vkb::SwapchainBuilder swapchainBuilder {chosenGPU, device, surface};
         swapchainImageFormat        = VK_FORMAT_B8G8R8A8_UNORM;
         vkb::Swapchain vkbSwapchain = swapchainBuilder.set_desired_format(VkSurfaceFormatKHR {swapchainImageFormat, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR})
-                                          .set_desired_present_mode(VK_PRESENT_MODE_FIFO_KHR)
+                                          .set_desired_present_mode(vsync ? VK_PRESENT_MODE_FIFO_KHR : VK_PRESENT_MODE_IMMEDIATE_KHR)
                                           .set_desired_extent(width, height)
                                           .add_image_usage_flags(VK_IMAGE_USAGE_TRANSFER_DST_BIT)
                                           .build()
@@ -1154,6 +1165,9 @@ namespace lumina
         layoutBuilder.AddBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
         layoutBuilder.AddBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
         layoutBuilder.AddBinding(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+        layoutBuilder.AddBinding(3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+        layoutBuilder.AddBinding(4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+        layoutBuilder.AddBinding(5, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);        
 
         materialSetLayout = layoutBuilder.Build(renderer->device, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
 
@@ -1232,6 +1246,21 @@ namespace lumina
             VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
         writer.WriteImage(
             2,
+            resources.EmissiveImage.imageView,
+            resources.EmissiveSampler,
+            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+            VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+        writer.WriteImage(3,
+            resources.normalImage.imageView,
+            resources.normalSampler,
+            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+            VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+        writer.WriteImage(4,
+            resources.occlusionImage.imageView,
+            resources.occlusionSampler,
+            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+            VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+        writer.WriteImage(5,
             resources.metallicRoughnessImage.imageView,
             resources.metallicRoughnessSampler,
             VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,

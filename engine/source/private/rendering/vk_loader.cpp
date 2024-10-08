@@ -11,6 +11,7 @@
 #include <fastgltf/include/fastgltf/tools.hpp>
 #include <fastgltf/include/fastgltf/types.hpp>
 #include <glm/gtx/quaternion.hpp>
+#include <glm/gtc/type_ptr.hpp>
 
 namespace lumina
 {
@@ -211,9 +212,9 @@ namespace lumina
         }
 
         std::vector<DescriptorAllocatorGrowable::PoolSizeRatio> poolSizes = {
-            {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 3},
-            {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 3},
-            {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 3}};
+            {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 10},
+            {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 10},
+            {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 10}};
 
         file.descriptorPool.InitializePool(renderer->device, gltfAsset.materials.size(), poolSizes);
 
@@ -271,11 +272,18 @@ namespace lumina
             file.materials[material.name.c_str()] = newMaterial;
 
             GLTFMetallicRoughness::MaterialConstants constants {};
-            constants.colorFactors.x = material.pbrData.baseColorFactor[0];
-            constants.colorFactors.y = material.pbrData.baseColorFactor[1];
-            constants.colorFactors.z = material.pbrData.baseColorFactor[2];
-            constants.colorFactors.w = material.pbrData.baseColorFactor[3];
-
+            constants.colorFactors = glm::make_vec4(material.pbrData.baseColorFactor.data());
+            constants.emissiveFactors = glm::make_vec4(material.emissiveFactor.data());
+            if (material.normalTexture.has_value())
+            {
+                constants.normalScale = material.normalTexture->scale;
+            }
+            if (material.occlusionTexture.has_value())
+            {
+                constants.occlusionStrength = material.occlusionTexture->strength;
+            }
+            
+            
             constants.metallicRoughnessFactors.x = material.pbrData.metallicFactor;
             constants.metallicRoughnessFactors.y = material.pbrData.roughnessFactor;
             sceneMaterialConstants[dataIndex]    = constants;
@@ -285,10 +293,15 @@ namespace lumina
             {
                 passType = MaterialPass::Transparent;
             }
-
             GLTFMetallicRoughness::MaterialResources materialResources {};
             materialResources.colorImage               = renderer->whiteImage;
             materialResources.colorSampler             = renderer->defaultSamplerLinear;
+            materialResources.EmissiveImage            = renderer->blackImage;
+            materialResources.EmissiveSampler          = renderer->defaultSamplerLinear;
+            materialResources.normalImage              = renderer->whiteImage;
+            materialResources.normalSampler            = renderer->defaultSamplerLinear;
+            materialResources.occlusionImage           = renderer->whiteImage;
+            materialResources.occlusionSampler         = renderer->defaultSamplerLinear;
             materialResources.metallicRoughnessImage   = renderer->whiteImage;
             materialResources.metallicRoughnessSampler = renderer->defaultSamplerLinear;
 
@@ -302,6 +315,38 @@ namespace lumina
 
                 materialResources.colorImage   = images[image];
                 materialResources.colorSampler = file.samplers[sampler];
+            }            
+            if (material.emissiveTexture.has_value())
+            {
+                size_t image   = gltfAsset.textures[material.emissiveTexture.value().textureIndex].imageIndex.value();
+                size_t sampler = gltfAsset.textures[material.emissiveTexture.value().textureIndex].samplerIndex.value();
+
+                materialResources.EmissiveImage   = images[image];
+                materialResources.EmissiveSampler = file.samplers[sampler];
+            }            
+            if (material.normalTexture.has_value())
+            {
+                size_t image   = gltfAsset.textures[material.normalTexture.value().textureIndex].imageIndex.value();
+                size_t sampler = gltfAsset.textures[material.normalTexture.value().textureIndex].samplerIndex.value();
+
+                materialResources.normalImage   = images[image];
+                materialResources.normalSampler = file.samplers[sampler];
+            }
+            if (material.occlusionTexture.has_value())
+            {
+                size_t image   = gltfAsset.textures[material.occlusionTexture.value().textureIndex].imageIndex.value();
+                size_t sampler = gltfAsset.textures[material.occlusionTexture.value().textureIndex].samplerIndex.value();
+
+                materialResources.occlusionImage   = images[image];
+                materialResources.occlusionSampler = file.samplers[sampler];
+            }
+            if (material.pbrData.metallicRoughnessTexture.has_value())
+            {
+                size_t image   = gltfAsset.textures[material.pbrData.metallicRoughnessTexture.value().textureIndex].imageIndex.value();
+                size_t sampler = gltfAsset.textures[material.pbrData.metallicRoughnessTexture.value().textureIndex].samplerIndex.value();
+
+                materialResources.metallicRoughnessImage   = images[image];
+                materialResources.metallicRoughnessSampler = file.samplers[sampler];
             }
             newMaterial->data = renderer->metallicRoughnessMaterial.WriteMaterial(renderer->device, passType, materialResources, file.descriptorPool);
             dataIndex++;

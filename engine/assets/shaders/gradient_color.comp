@@ -24,6 +24,6 @@ void main()
     {
         float blend = float(texCoord.y) / float(imageSize.y);
         
-        imageStore(inputImage, texCoord, mix(topColor, bottomColor, blend));
+        imageStore(inputImage, texCoord, vec4(0.0));
     }
 }

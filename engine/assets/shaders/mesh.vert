@@ -8,6 +8,7 @@
 layout (location = 0) out vec3 outNormal;
 layout (location = 1) out vec3 outColor;
 layout (location = 2) out vec2 outUV;
+layout (location = 3) out vec3 outWorldPos;
 
 struct Vertex
 {
@@ -34,7 +35,8 @@ void main()
     Vertex v = PushConstants.vertexBuffer.vertices[gl_VertexIndex];
     vec4 position = vec4(v.position, 1.0f);
     
-    gl_Position = sceneData.viewProjection * PushConstants.renderMatrix * position;
+    outWorldPos = (PushConstants.renderMatrix * position).xyz;
+    gl_Position = sceneData.viewProj * PushConstants.renderMatrix * position;
     
     outNormal = (PushConstants.renderMatrix * vec4(v.normal, 0.0f)).xyz;
     outColor = v.color.xyz * materialData.colorFactors.xyz;
