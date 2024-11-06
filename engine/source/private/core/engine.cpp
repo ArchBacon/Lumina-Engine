@@ -1,5 +1,7 @@
 ﻿#include "engine.hpp"
 
+#include "AssetImporter.hpp"
+#include "AssetManager.hpp"
 #include "../rendering/vk_renderer.hpp"
 #include "core/fileio.hpp"
 #include "core/log.hpp"
@@ -29,6 +31,14 @@ namespace lumina
         {
             throw std::runtime_error("VulkanRenderer is not initialized, this should never happen!");
         }
+
+        assetManager = std::make_unique<lumina::AssetManager>();
+        if (!assetManager)
+        {
+            throw std::runtime_error("AssetManager is not initialized, this should never happen!");
+        }
+
+        AssetImporter::Import("F:\\LuminaEngine\\engine\\assets\\models\\basicmesh.glb");
     }
 
     void Engine::Run()
