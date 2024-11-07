@@ -10,9 +10,10 @@ namespace lumina
 {
     FileIO::FileIO()
     {
-        directories[Directory::Assets] = "engine/assets/";
-        directories[Directory::Config] = "engine/config/";
-        directories[Directory::Log]    = "log/";
+        directories[Directory::Assets]  = "engine/assets/";
+        directories[Directory::Config]  = "engine/config/";
+        directories[Directory::Log]     = "log/";
+        directories[Directory::Content] = "content/"; // TODO: move to user project
     }
 
     std::string FileIO::ReadTextFile(const Directory directory, const std::string& filePath)

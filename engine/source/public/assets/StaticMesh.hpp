@@ -1,7 +1,6 @@
 ﻿#pragma once
 
-#include "../../private/core/Asset.hpp"
-#include "../../private/rendering/vk_loader.hpp"
+#include "Asset.hpp"
 
 namespace lumina
 {
@@ -12,11 +11,4 @@ namespace lumina
         
         void Reload() override;
     };
-
-    inline void StaticMesh::Reload()
-    {
-        Asset::Reload();
-
-        LoadGLTF(source);
-    }
 }

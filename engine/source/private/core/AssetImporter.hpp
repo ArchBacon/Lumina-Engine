@@ -1,7 +1,5 @@
 ﻿#pragma once
 
-#include "core/log.hpp"
-
 #include <filesystem>
 #include <string>
 

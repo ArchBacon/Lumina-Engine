@@ -1,10 +1,11 @@
 ﻿#pragma once
 
-#include "Asset.hpp"
+#include "assets/Asset.hpp"
 
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <fastgltf/core.hpp>
 
 namespace lumina
 {

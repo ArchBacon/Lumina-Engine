@@ -17,7 +17,8 @@ namespace lumina
         {
             Assets,
             Config,
-            Log
+            Log,
+            Content,
         };
 
         FileIO();

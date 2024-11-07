@@ -8,7 +8,8 @@ namespace lumina
     {
         friend class AssetManager;
         friend class AssetImporter;
-        
+
+    protected:
         size_t id {0};
         std::string path {};
         std::string source {};
@@ -27,6 +28,6 @@ namespace lumina
         [[nodiscard]] const std::string& GetSource() const { return source; }
 
         // Reload allows assets to reload an asset if there were any changes to the source file
-        virtual void Reload();
+        virtual void Reload() = 0;
     };
 }

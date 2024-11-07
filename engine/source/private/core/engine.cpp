@@ -38,6 +38,7 @@ namespace lumina
             throw std::runtime_error("AssetManager is not initialized, this should never happen!");
         }
 
+        // TODO: Testing purposes only
         AssetImporter::Import("F:\\LuminaEngine\\engine\\assets\\models\\basicmesh.glb");
     }
 
